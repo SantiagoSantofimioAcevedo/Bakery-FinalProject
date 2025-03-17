@@ -97,6 +97,10 @@ const Receta = sequelize.define('Receta', {
   precio_venta: {
     type: DataTypes.FLOAT,
     allowNull: false
+  },
+  imagen: {
+    type: DataTypes.STRING,
+    allowNull: true
   }
 });
 
