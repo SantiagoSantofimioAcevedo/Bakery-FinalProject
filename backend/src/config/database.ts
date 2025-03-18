@@ -1,4 +1,4 @@
-import { Sequelize } from 'sequelize';
+import { Sequelize, Op } from 'sequelize';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -15,4 +15,5 @@ const sequelize = new Sequelize(
   }
 );
 
+export { Op }; 
 export default sequelize;

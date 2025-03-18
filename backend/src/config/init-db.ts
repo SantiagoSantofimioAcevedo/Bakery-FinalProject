@@ -135,6 +135,9 @@ const Produccion = sequelize.define('Produccion', {
     allowNull: false,
     defaultValue: DataTypes.NOW
   }
+}, {
+  tableName: 'producciones',
+  timestamps: true 
 });
 
 const Venta = sequelize.define('Venta', {
@@ -174,11 +177,11 @@ const DetalleVenta = sequelize.define('DetalleVenta', {
 Receta.belongsToMany(MateriaPrima, { through: RecetaIngrediente });
 MateriaPrima.belongsToMany(Receta, { through: RecetaIngrediente });
 
-Produccion.belongsTo(Receta);
-Receta.hasMany(Produccion);
+Produccion.belongsTo(Receta, { foreignKey: 'RecetumId', onDelete: 'CASCADE' });
+Receta.hasMany(Produccion, { foreignKey: 'RecetumId' });
 
-Produccion.belongsTo(Usuario);
-Usuario.hasMany(Produccion);
+Produccion.belongsTo(Usuario, { foreignKey: 'UsuarioId', onDelete: 'CASCADE' });
+Usuario.hasMany(Produccion, { foreignKey: 'UsuarioId' });
 
 Venta.belongsTo(Usuario);
 Usuario.hasMany(Venta);
@@ -191,32 +194,33 @@ Receta.hasMany(DetalleVenta);
 
 // Función para inicializar la base de datos
 export const initDatabase = async () => {
-    try {
-      // Sincronizar todos los modelos sin eliminar tablas existentes
-      await sequelize.sync();
-      console.log('Base de datos sincronizada correctamente');
-  
-      // Verificar si el usuario administrador ya existe
-      const adminExistente = await Usuario.findOne({ where: { usuario: 'admin' } });
-  
-      if (!adminExistente) {
-        // Crear usuario administrador por defecto solo si no existe
-        await Usuario.create({
-          nombre: 'Admin',
-          apellido: 'Sistema',
-          usuario: 'admin',
-          contraseña: '$2b$10$XlPMyvCYEMZRMnZgrSKXe.Qc2ZKjFxUeiKYXBAkHgpij0Ob47ks2m', // contraseña: admin123
-          rol: 'administrador'
-        });
-  
-        console.log('Usuario administrador creado correctamente');
-      } else {
-        console.log('El usuario administrador ya existe');
-      }
-    } catch (error) {
-      console.error('Error al inicializar la base de datos:', error);
+  try {
+    // Sincronizar todos los modelos y modificar la estructura si es necesario
+    await sequelize.sync({ alter: true });  
+    console.log('✅ Base de datos sincronizada y actualizada correctamente');
+
+    // Verificar si el usuario administrador ya existe
+    const adminExistente = await Usuario.findOne({ where: { usuario: 'admin' } });
+
+    if (!adminExistente) {
+      // Crear usuario administrador por defecto solo si no existe
+      await Usuario.create({
+        nombre: 'Admin',
+        apellido: 'Sistema',
+        usuario: 'admin',
+        contraseña: '$2b$10$XlPMyvCYEMZRMnZgrSKXe.Qc2ZKjFxUeiKYXBAkHgpij0Ob47ks2m', // contraseña: admin123
+        rol: 'administrador'
+      });
+
+      console.log('✅ Usuario administrador creado correctamente');
+    } else {
+      console.log('ℹ️ El usuario administrador ya existe');
     }
-  };
+  } catch (error) {
+    console.error('❌ Error al inicializar la base de datos:', error);
+  }
+};
+
   
 
 // Exportar modelos
