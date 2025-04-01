@@ -69,10 +69,10 @@ export const login = async (req: Request, res: Response) => {
 // Registro de usuarios (solo para administradores)
 export const register = async (req: Request, res: Response) => {
   try {
-    const { nombre, apellido, usuario, contraseña, rol } = req.body;
+    const { nombre, apellido, documento, usuario, contraseña, rol } = req.body;
 
     // Validar que se enviaron todos los campos requeridos
-    if (!nombre || !apellido || !usuario || !contraseña || !rol) {
+    if (!nombre || !apellido || !documento || !usuario || !contraseña || !rol) {
       return res.status(400).json({ message: 'Todos los campos son requeridos' });
     }
 
@@ -87,6 +87,12 @@ export const register = async (req: Request, res: Response) => {
       return res.status(400).json({ message: 'El nombre de usuario ya está en uso' });
     }
 
+    // Verificar si el documento ya existe
+    const existingDocument = await models.Usuario.findOne({ where: { documento } });
+    if (existingDocument) {
+      return res.status(400).json({ message: 'El documento ya está registrado' });
+    }
+
     // Hashear la contraseña
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(contraseña, salt);
@@ -95,6 +101,7 @@ export const register = async (req: Request, res: Response) => {
     const newUser = await models.Usuario.create({
       nombre,
       apellido,
+      documento,
       usuario,
       contraseña: hashedPassword,
       rol
@@ -107,6 +114,7 @@ export const register = async (req: Request, res: Response) => {
         id: newUser.get('id'),
         nombre: newUser.get('nombre'),
         apellido: newUser.get('apellido'),
+        documento: newUser.get('documento'),
         usuario: newUser.get('usuario'),
         rol: newUser.get('rol')
       }

@@ -1,8 +1,12 @@
 import { Router } from 'express';
 import { asyncHandler } from '../utils/asyncHandler';
+import { authMiddleware } from '../middleware/authMiddleware';
 import { getAllMateriasPrimas,getMateriaPrimaById,createMateriaPrima,updateMateriaPrima,deleteMateriaPrima,adjustStock,getLowStock} from '../controllers/materiaPrimaController';
 
 const router = Router();
+
+// Aplicar middleware de autenticación a todas las rutas
+router.use(authMiddleware);
 
 router.get('/materias-primas', asyncHandler(getAllMateriasPrimas));
 router.get('/materias-primas/bajo-stock', asyncHandler(getLowStock));

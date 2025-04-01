@@ -6,24 +6,26 @@ import authRoutes from './routes/auth';
 import materiasPrimasRoutes from './routes/materiasPrimasRoutes';
 import recetasRoutes from './routes/recetasRoutes';
 import ventasRoutes from './routes/ventasRoutes';
-import produccionesRoutes from './routes/produccionRoutes'; 
+import produccionesRoutes from './routes/produccionRoutes';
+import dashboardRoutes from './routes/dashboardRoutes';
 import path from 'path';
 
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3005;
 
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Rutas
-app.use(authRoutes);  // Usar las rutas de autenticación
+app.use('/api/auth', authRoutes);
 app.use('/api', materiasPrimasRoutes);
 app.use('/api/recetas', recetasRoutes);
 app.use('/api', ventasRoutes);
-app.use('/api/producciones', produccionesRoutes); 
+app.use('/api/producciones', produccionesRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 app.use('/images', express.static(path.join(__dirname, '../public/images')));
 

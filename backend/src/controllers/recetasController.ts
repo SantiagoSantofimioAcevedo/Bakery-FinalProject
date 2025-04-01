@@ -45,6 +45,19 @@ export const upload = multer({
   }
 });
 
+// Interfaz para el modelo Receta
+interface RecetaAttributes {
+  id?: number;
+  nombre: string;
+  descripcion?: string;
+  tiempo_preparacion: number;
+  tiempo_horneado: number;
+  temperatura: number;
+  instrucciones: string;
+  precio_venta: number;
+  imagen?: string;
+}
+
 // Obtener todas las recetas
 export const getAllRecetas = async (req: Request, res: Response) => {
   try {
@@ -116,6 +129,20 @@ export const createReceta = async (req: Request, res: Response) => {
     const t = await sequelize.transaction();
     
     try {
+      let recetaData;
+      
+      // Si hay un archivo, los datos de la receta vienen en el campo 'receta' como string
+      if (req.file) {
+        try {
+          recetaData = JSON.parse(req.body.receta);
+        } catch (error) {
+          return res.status(400).json({ message: 'Error al procesar los datos de la receta' });
+        }
+      } else {
+        // Si no hay archivo, los datos vienen directamente en req.body
+        recetaData = req.body;
+      }
+
       const { 
         nombre, 
         descripcion, 
@@ -125,7 +152,7 @@ export const createReceta = async (req: Request, res: Response) => {
         instrucciones, 
         precio_venta,
         ingredientes 
-      } = req.body;
+      } = recetaData;
       
       // Validar que se enviaron todos los campos requeridos
       if (!nombre || !tiempo_preparacion || !tiempo_horneado || !temperatura || !instrucciones || !precio_venta || !ingredientes) {
@@ -149,7 +176,7 @@ export const createReceta = async (req: Request, res: Response) => {
         temperatura,
         instrucciones,
         precio_venta,
-        imagen  // Nuevo campo para guardar el nombre del archivo
+        imagen
       }, { transaction: t });
       
       // Acceder a 'id' de la receta creada de forma segura
@@ -216,6 +243,20 @@ export const updateReceta = async (req: Request, res: Response) => {
   
   try {
     const { id } = req.params;
+    let recetaData;
+
+    // Si hay un archivo, los datos de la receta vienen en el campo 'receta' como string
+    if (req.file) {
+      try {
+        recetaData = JSON.parse(req.body.receta);
+      } catch (error) {
+        return res.status(400).json({ message: 'Error al procesar los datos de la receta' });
+      }
+    } else {
+      // Si no hay archivo, los datos vienen directamente en req.body
+      recetaData = req.body;
+    }
+
     const { 
       nombre, 
       descripcion, 
@@ -225,75 +266,66 @@ export const updateReceta = async (req: Request, res: Response) => {
       instrucciones, 
       precio_venta,
       ingredientes 
-    } = req.body;
-    
-    // Buscar la receta
+    } = recetaData;
+
+    // Validar que se enviaron todos los campos requeridos
+    if (!nombre || !tiempo_preparacion || !tiempo_horneado || !temperatura || !instrucciones || !precio_venta || !ingredientes) {
+      return res.status(400).json({ message: 'Todos los campos son requeridos' });
+    }
+
+    // Validar que el array de ingredientes no esté vacío
+    if (!Array.isArray(ingredientes) || ingredientes.length === 0) {
+      return res.status(400).json({ message: 'Debe incluir al menos un ingrediente' });
+    }
+
+    // Verificar que la receta existe
     const receta = await models.Receta.findByPk(id);
-    
     if (!receta) {
-      await t.rollback();
       return res.status(404).json({ message: 'Receta no encontrada' });
     }
-    
-    // Obtener el archivo de imagen si existe
-    const imagen = req.file ? req.file.filename : receta.get('imagen');
-    
-    // Si hay una nueva imagen y ya existe una imagen anterior, borrar la imagen anterior
-    if (req.file && receta.get('imagen')) {
-      const imagenAnterior = receta.get('imagen');
-      const rutaImagen = path.join(__dirname, '../../uploads/recetas', imagenAnterior as string);
-      
-      // Verificar si el archivo existe antes de intentar eliminarlo
-      if (fs.existsSync(rutaImagen)) {
-        fs.unlinkSync(rutaImagen);
-      }
-    }
-    
-    // Actualizar la receta
+
+    // Actualizar los datos básicos de la receta
     await receta.update({
-      nombre: nombre || receta.get('nombre'),
-      descripcion: descripcion !== undefined ? descripcion : receta.get('descripcion'),
-      tiempo_preparacion: tiempo_preparacion || receta.get('tiempo_preparacion'),
-      tiempo_horneado: tiempo_horneado || receta.get('tiempo_horneado'),
-      temperatura: temperatura || receta.get('temperatura'),
-      instrucciones: instrucciones || receta.get('instrucciones'),
-      precio_venta: precio_venta || receta.get('precio_venta'),
-      imagen: imagen  // Actualizar campo de imagen
+      nombre,
+      descripcion: descripcion || '',
+      tiempo_preparacion,
+      tiempo_horneado,
+      temperatura,
+      instrucciones,
+      precio_venta,
+      imagen: req.file ? req.file.filename : receta.get('imagen')
     }, { transaction: t });
-    
-    // Si se enviaron ingredientes, actualizar las relaciones
-    if (ingredientes && Array.isArray(ingredientes)) {
-      // Eliminar las relaciones actuales
-      await models.RecetaIngrediente.destroy({
-        where: { RecetaId: id },
-        transaction: t
-      });
+
+    // Eliminar los ingredientes actuales
+    await models.RecetaIngrediente.destroy({
+      where: { RecetaId: id },
+      transaction: t
+    });
+
+    // Añadir los nuevos ingredientes
+    for (const ingrediente of ingredientes) {
+      const { id: materiaId, cantidad, unidad_medida } = ingrediente;
       
-      // Añadir las nuevas relaciones
-      for (const ingrediente of ingredientes) {
-        const { id: materiaId, cantidad, unidad_medida } = ingrediente;
-        
-        // Verificar que la materia prima existe
-        const materiaPrima = await models.MateriaPrima.findByPk(materiaId);
-        if (!materiaPrima) {
-          await t.rollback();
-          return res.status(404).json({ message: `Materia prima con ID ${materiaId} no encontrada` });
-        }
-        
-        // Añadir la relación entre receta e ingrediente
-        await models.RecetaIngrediente.create({
-          RecetaId: id,
-          MateriaPrimaId: materiaId,
-          cantidad,
-          unidad_medida
-        }, { transaction: t });
+      // Verificar que la materia prima existe
+      const materiaPrima = await models.MateriaPrima.findByPk(materiaId);
+      if (!materiaPrima) {
+        await t.rollback();
+        return res.status(404).json({ message: `Materia prima con ID ${materiaId} no encontrada` });
       }
+      
+      // Añadir la relación entre receta e ingrediente
+      await models.RecetaIngrediente.create({
+        RecetaId: id,
+        MateriaPrimaId: materiaId,
+        cantidad,
+        unidad_medida
+      }, { transaction: t });
     }
-    
+
     // Confirmar la transacción
     await t.commit();
-    
-    // Obtener la receta actualizada con los ingredientes
+
+    // Obtener la receta actualizada con sus ingredientes
     const recetaActualizada = await models.Receta.findByPk(id, {
       include: [
         {
@@ -304,25 +336,18 @@ export const updateReceta = async (req: Request, res: Response) => {
         }
       ]
     });
-    
-    if (!recetaActualizada) {
-      return res.status(500).json({ message: 'Error al recuperar la receta actualizada' });
-    }
-    
-    // Agregar URL completa para la imagen o imagen por defecto
-    const recetaObj = recetaActualizada.toJSON();
-    if (recetaObj.imagen) {
+
+    // Agregar URL de la imagen
+    const recetaObj = recetaActualizada?.toJSON();
+    if (recetaObj && recetaObj.imagen) {
       recetaObj.imagen_url = `${req.protocol}://${req.get('host')}/uploads/recetas/${recetaObj.imagen}`;
-    } else {
-      recetaObj.imagen_url = `${req.protocol}://${req.get('host')}/images/default-recipe.png`;
     }
-    
+
     return res.status(200).json(recetaObj);
   } catch (error) {
-    // Revertir la transacción en caso de error
     await t.rollback();
     console.error('Error al actualizar receta:', error);
-    return res.status(500).json({ message: 'Error en el servidor' });
+    return res.status(500).json({ message: 'Error al actualizar la receta' });
   }
 };
 

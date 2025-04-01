@@ -5,9 +5,9 @@ import { asyncHandler } from '../utils/asyncHandler';
 
 const router = Router();
 
-router.post('/api/register', asyncHandler(register));
-router.post('/api/login', asyncHandler(login));
-router.get('/api/me', authMiddleware, asyncHandler(getCurrentUser));
+router.post('/register', asyncHandler(register));
+router.post('/login', asyncHandler(login));
+router.get('/me', authMiddleware, asyncHandler(getCurrentUser));
 
 export default router;
 

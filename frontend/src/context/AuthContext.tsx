@@ -1,91 +1,125 @@
-import React, { createContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useState, useEffect } from 'react';
 import api from '../services/api';
+import authService, { RegisterData } from '../services/authService';
+
+// Definición de tipos
+type UserRole = 'panadero' | 'administrador';
 
 interface User {
   id: number;
   nombre: string;
   apellido: string;
   usuario: string;
-  rol: 'panadero' | 'administrador';
+  rol: UserRole;
 }
 
 interface AuthContextType {
   user: User | null;
+  token: string | null;
+  login: (username: string, password: string) => Promise<void>;
+  register: (userData: RegisterData) => Promise<void>;
+  logout: () => void;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (username: string, password: string) => Promise<void>;
-  logout: () => void;
 }
 
-export const AuthContext = createContext<AuthContextType>({
-  user: null,
-  isAuthenticated: false,
-  isLoading: true,
-  login: async () => {},
-  logout: () => {},
-});
+// Creación del contexto
+export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-interface AuthProviderProps {
-  children: ReactNode;
-}
-
-export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
+// Proveedor del contexto
+const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Cargar datos de autenticación desde localStorage al inicio
   useEffect(() => {
-    const loadUser = async () => {
-      const token = localStorage.getItem('token');
-      
-      if (token) {
-        try {
-          // Aquí implementarás la validación del token cuando tengas ese endpoint
-          // const response = await api.get('/auth/me');
-          // setUser(response.data);
-        } catch (error) {
-          localStorage.removeItem('token');
-        }
-      }
-      
-      setIsLoading(false);
-    };
-    
-    loadUser();
+    const storedUser = localStorage.getItem('user');
+    const storedToken = localStorage.getItem('token');
+
+    if (storedUser && storedToken) {
+      setUser(JSON.parse(storedUser));
+      setToken(storedToken);
+    }
+
+    setIsLoading(false);
   }, []);
 
+  // Función para iniciar sesión
   const login = async (username: string, password: string) => {
-    // Aquí implementarás el login cuando tengas ese endpoint
-    // const response = await api.post('/auth/login', { username, password });
-    // localStorage.setItem('token', response.data.token);
-    // setUser(response.data.user);
-    
-    // Por ahora, simulamos un login para que puedas trabajar en el frontend
-    const mockUsers = [
-      { id: 1, nombre: 'Admin', apellido: 'Sistema', usuario: 'admin', rol: 'administrador' as const },
-      { id: 2, nombre: 'Panadero', apellido: 'Prueba', usuario: 'panadero', rol: 'panadero' as const }
-    ];
-    
-    const user = mockUsers.find(u => u.usuario === username);
-    if (user && password === 'password123') {
-      localStorage.setItem('token', 'mock-token');
-      localStorage.setItem('user', JSON.stringify(user));
-      setUser(user);
-    } else {
-      throw new Error('Credenciales inválidas');
+    try {
+      setIsLoading(true);
+      
+      const response = await authService.login({
+        usuario: username,
+        contraseña: password
+      });
+
+      // Verificar que el rol es válido
+      if (response.user.rol !== 'panadero' && response.user.rol !== 'administrador') {
+        throw new Error('Rol de usuario inválido');
+      }
+
+      // Guardar datos en el estado y localStorage
+      const userData: User = {
+        id: response.user.id,
+        nombre: response.user.nombre,
+        apellido: response.user.apellido,
+        usuario: response.user.usuario,
+        rol: response.user.rol as UserRole
+      };
+      
+      setUser(userData);
+      setToken(response.token);
+      localStorage.setItem('user', JSON.stringify(userData));
+      localStorage.setItem('token', response.token);
+      
+    } catch (error) {
+      console.error('Error durante el login:', error);
+      throw error;
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const logout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    setUser(null);
+  // Función para registrar usuarios
+  const register = async (userData: RegisterData) => {
+    try {
+      setIsLoading(true);
+      
+      await authService.register(userData);
+      
+      // No iniciamos sesión automáticamente después del registro
+      // porque normalmente solo los administradores registran usuarios
+      
+    } catch (error) {
+      console.error('Error durante el registro:', error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  return (
-    <AuthContext.Provider value={{ user, isAuthenticated: !!user, isLoading, login, logout }}>
-      {children}
-    </AuthContext.Provider>
-  );
+  // Función para cerrar sesión
+  const logout = () => {
+    setUser(null);
+    setToken(null);
+    localStorage.removeItem('user');
+    localStorage.removeItem('token');
+  };
+
+  // Valor del contexto
+  const value = {
+    user,
+    token,
+    login,
+    register,
+    logout,
+    isAuthenticated: !!user,
+    isLoading,
+  };
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
 export default AuthProvider;
