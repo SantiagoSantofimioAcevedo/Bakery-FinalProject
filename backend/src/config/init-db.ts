@@ -1,5 +1,6 @@
 import sequelize from './database';
 import { DataTypes } from 'sequelize';
+import bcrypt from 'bcrypt';
 
 // Definición de modelos
 const Usuario = sequelize.define('Usuario', {
@@ -15,6 +16,11 @@ const Usuario = sequelize.define('Usuario', {
   apellido: {
     type: DataTypes.STRING,
     allowNull: false
+  },
+  documento: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    unique: true
   },
   usuario: {
     type: DataTypes.STRING,
@@ -150,6 +156,11 @@ const Venta = sequelize.define('Venta', {
     type: DataTypes.DATE,
     allowNull: false,
     defaultValue: DataTypes.NOW
+  },
+  total: {
+    type: DataTypes.FLOAT,
+    allowNull: false,
+    defaultValue: 0
   }
 });
 
@@ -174,8 +185,16 @@ const DetalleVenta = sequelize.define('DetalleVenta', {
 });
 
 // Definir relaciones
-Receta.belongsToMany(MateriaPrima, { through: RecetaIngrediente });
-MateriaPrima.belongsToMany(Receta, { through: RecetaIngrediente });
+Receta.belongsToMany(MateriaPrima, { 
+  through: RecetaIngrediente,
+  foreignKey: 'RecetaId',
+  otherKey: 'MateriaPrimaId'
+});
+MateriaPrima.belongsToMany(Receta, { 
+  through: RecetaIngrediente,
+  foreignKey: 'MateriaPrimaId',
+  otherKey: 'RecetaId'
+});
 
 Produccion.belongsTo(Receta, { foreignKey: 'RecetumId', onDelete: 'CASCADE' });
 Receta.hasMany(Produccion, { foreignKey: 'RecetumId' });
@@ -192,36 +211,44 @@ Venta.hasMany(DetalleVenta);
 DetalleVenta.belongsTo(Receta);
 Receta.hasMany(DetalleVenta);
 
-// Función para inicializar la base de datos
-export const initDatabase = async () => {
+// Función para crear usuario administrador inicial
+const createInitialAdmin = async () => {
   try {
-    // Sincronizar todos los modelos y modificar la estructura si es necesario
-    await sequelize.sync({ alter: true });  
-    console.log('✅ Base de datos sincronizada y actualizada correctamente');
-
-    // Verificar si el usuario administrador ya existe
-    const adminExistente = await Usuario.findOne({ where: { usuario: 'admin' } });
-
-    if (!adminExistente) {
-      // Crear usuario administrador por defecto solo si no existe
+    const adminExists = await Usuario.findOne({ where: { usuario: 'admin' } });
+    if (!adminExists) {
+      const hashedPassword = await bcrypt.hash('admin123', 10);
       await Usuario.create({
-        nombre: 'Admin',
+        nombre: 'Administrador',
         apellido: 'Sistema',
+        documento: '0000000000',
         usuario: 'admin',
-        contraseña: '$2b$10$XlPMyvCYEMZRMnZgrSKXe.Qc2ZKjFxUeiKYXBAkHgpij0Ob47ks2m', // contraseña: admin123
+        contraseña: hashedPassword,
         rol: 'administrador'
       });
-
-      console.log('✅ Usuario administrador creado correctamente');
-    } else {
-      console.log('ℹ️ El usuario administrador ya existe');
+      console.log('Usuario administrador inicial creado');
     }
   } catch (error) {
-    console.error('❌ Error al inicializar la base de datos:', error);
+    console.error('Error al crear usuario administrador:', error);
   }
 };
 
-  
+export const initDatabase = async () => {
+  try {
+    // Primero sincronizar todo excepto RecetaIngrediente
+    await sequelize.sync();
+    
+    // Luego sincronizar la tabla RecetaIngrediente sin forzar su recreación
+    await RecetaIngrediente.sync({ alter: true });
+    
+    console.log('Base de datos sincronizada');
+    
+    // Crear el usuario administrador
+    await createInitialAdmin();
+    console.log('Inicialización de la base de datos completada');
+  } catch (error) {
+    console.error('Error al inicializar la base de datos:', error);
+  }
+};
 
 // Exportar modelos
 export const models = {
