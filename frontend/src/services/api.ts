@@ -11,42 +11,56 @@ const api = axios.create({
   },
 });
 
-// Interceptor para agregar token de autenticación
+// Interceptor para agregar el token a las peticiones
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
-    console.log('Request:', {
+    
+    // Log de la petición
+    console.log('🌐 Request:', {
       url: config.url,
       method: config.method,
       headers: config.headers,
-      data: config.data
+      data: config.data instanceof FormData 
+        ? 'FormData (contenido no visible en consola)' 
+        : config.data
     });
+    
     return config;
   },
   (error) => {
-    console.error('Request Error:', error);
+    console.error('❌ Error en la petición:', error);
     return Promise.reject(error);
   }
 );
 
-// Interceptor para manejar respuestas
+// Interceptor para manejar las respuestas
 api.interceptors.response.use(
   (response) => {
-    console.log('Response:', {
+    // Log de la respuesta exitosa
+    console.log('✅ Response:', {
       status: response.status,
       data: response.data
     });
     return response;
   },
   (error) => {
-    console.error('Response Error:', {
+    // Log detallado del error
+    console.error('❌ Response Error:', {
       status: error.response?.status,
       data: error.response?.data,
       message: error.message
     });
+    
+    // Si el error es de autenticación, limpiar el token
+    if (error.response?.status === 401) {
+      localStorage.removeItem('token');
+      // En lugar de redirigir, dejamos que el componente maneje el error
+    }
+    
     return Promise.reject(error);
   }
 );

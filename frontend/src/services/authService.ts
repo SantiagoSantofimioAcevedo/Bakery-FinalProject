@@ -27,11 +27,26 @@ export interface AuthResponse {
   };
 }
 
+export interface PasswordResetRequest {
+  usuario: string;
+  masterPassword: string;
+}
+
+export interface PasswordResetResponse {
+  message: string;
+  usuario: string;
+}
+
+export interface PasswordResetConfirm {
+  usuario: string;
+  newPassword: string;
+}
+
 export const login = async (credentials: LoginCredentials): Promise<AuthResponse> => {
   try {
     const response = await api.post('/api/auth/login', credentials);
     return response.data;
-  } catch (error) {
+  } catch (error: any) {
     throw error;
   }
 };
@@ -54,10 +69,29 @@ export const getCurrentUser = async (): Promise<AuthResponse> => {
   }
 };
 
+export const requestPasswordReset = async (data: PasswordResetRequest): Promise<PasswordResetResponse> => {
+  try {
+    const response = await api.post('/api/auth/request-password-reset', data);
+    return response.data;
+  } catch (error) {
+    throw error;
+  }
+};
+
+export const resetPassword = async (data: PasswordResetConfirm): Promise<void> => {
+  try {
+    await api.post('/api/auth/reset-password', data);
+  } catch (error) {
+    throw error;
+  }
+};
+
 const authService = {
   login,
   register,
-  getCurrentUser
+  getCurrentUser,
+  requestPasswordReset,
+  resetPassword
 };
 
 export default authService;

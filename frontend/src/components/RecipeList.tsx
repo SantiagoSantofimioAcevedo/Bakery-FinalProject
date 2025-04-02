@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { API_URL } from '../config';
-import { Receta, MateriaPrima, FormData, RecetaIngrediente } from '../types';
+import { Receta, MateriaPrima, RecipeFormData, RecetaIngrediente } from '../types';
 
 const RecipeList: React.FC = () => {
   const [recetas, setRecetas] = useState<Receta[]>([]);
   const [materiasPrimas, setMateriasPrimas] = useState<MateriaPrima[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [currentRecipe, setCurrentRecipe] = useState<Receta | null>(null);
-  const [formData, setFormData] = useState<FormData>({
+  const [formData, setFormData] = useState<RecipeFormData>({
     nombre: '',
     descripcion: '',
     tiempo_preparacion: 0,
@@ -101,7 +101,7 @@ const RecipeList: React.FC = () => {
     const target = e.target as HTMLInputElement;
     
     try {
-      setFormData(prev => ({
+      setFormData((prev: RecipeFormData) => ({
         ...prev,
         [name]: type === 'file' 
           ? target.files?.[0] || null 
@@ -116,7 +116,7 @@ const RecipeList: React.FC = () => {
 
   const handleIngredienteChange = (index: number, field: string, value: number) => {
     try {
-      setFormData(prev => ({
+      setFormData((prev: RecipeFormData) => ({
         ...prev,
         ingredientes: prev.ingredientes.map((ing: RecetaIngrediente, i: number) => 
           i === index ? { ...ing, [field]: value } : ing

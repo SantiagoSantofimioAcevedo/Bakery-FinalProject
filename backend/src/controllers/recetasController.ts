@@ -95,6 +95,8 @@ export const getRecetaById = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     
+    console.log('⭐ Obteniendo receta con ID:', id);
+    
     const receta = await models.Receta.findByPk(id, {
       include: [
         {
@@ -107,16 +109,21 @@ export const getRecetaById = async (req: Request, res: Response) => {
     });
     
     if (!receta) {
+      console.log('❌ Receta no encontrada');
       return res.status(404).json({ message: 'Receta no encontrada' });
     }
     
     // Agregar URL completa para la imagen o imagen por defecto
     const recetaObj = receta.toJSON();
+    console.log('📦 Datos de la receta:', JSON.stringify(recetaObj, null, 2));
+    
     if (recetaObj.imagen) {
       recetaObj.imagen_url = `${req.protocol}://${req.get('host')}/uploads/recetas/${recetaObj.imagen}`;
     } else {
       recetaObj.imagen_url = `${req.protocol}://${req.get('host')}/images/default-recipe.png`;
     }
+    
+    console.log('🔍 MateriaPrima en la receta:', recetaObj.MateriaPrima);
     
     return res.status(200).json(recetaObj);
   } catch (error) {
@@ -135,12 +142,15 @@ export const createReceta = async (req: Request, res: Response) => {
       if (req.file) {
         try {
           recetaData = JSON.parse(req.body.receta);
+          console.log('📥 Datos recibidos para crear receta (con imagen):', JSON.stringify(recetaData, null, 2));
         } catch (error) {
+          console.error('❌ Error al procesar los datos de la receta:', error);
           return res.status(400).json({ message: 'Error al procesar los datos de la receta' });
         }
       } else {
         // Si no hay archivo, los datos vienen directamente en req.body
         recetaData = req.body;
+        console.log('📥 Datos recibidos para crear receta (sin imagen):', JSON.stringify(recetaData, null, 2));
       }
 
       const { 
@@ -154,18 +164,23 @@ export const createReceta = async (req: Request, res: Response) => {
         ingredientes 
       } = recetaData;
       
+      console.log('🧾 Ingredientes recibidos:', JSON.stringify(ingredientes, null, 2));
+      
       // Validar que se enviaron todos los campos requeridos
       if (!nombre || !tiempo_preparacion || !tiempo_horneado || !temperatura || !instrucciones || !precio_venta || !ingredientes) {
+        console.log('❌ Faltan campos requeridos');
         return res.status(400).json({ message: 'Todos los campos son requeridos' });
       }
       
       // Validar que el array de ingredientes no esté vacío
       if (!Array.isArray(ingredientes) || ingredientes.length === 0) {
+        console.log('❌ No se recibieron ingredientes');
         return res.status(400).json({ message: 'Debe incluir al menos un ingrediente' });
       }
       
       // Obtener el archivo de imagen si existe
       const imagen = req.file ? req.file.filename : null;
+      console.log('🖼️ Imagen:', imagen ? `Archivo: ${imagen}` : 'No se proporcionó imagen');
       
       // Crear la nueva receta
       const nuevaReceta = await models.Receta.create({
@@ -179,23 +194,27 @@ export const createReceta = async (req: Request, res: Response) => {
         imagen
       }, { transaction: t });
       
+      console.log('✅ Receta base creada:', nuevaReceta.get('id'));
+      
       // Acceder a 'id' de la receta creada de forma segura
       const recetaId = nuevaReceta.get('id') as number;
       
       // Añadir los ingredientes a la receta
       for (const ingrediente of ingredientes) {
         const { id, cantidad, unidad_medida } = ingrediente;
+        console.log(`📝 Agregando ingrediente: ID=${id}, Cantidad=${cantidad}, Unidad=${unidad_medida}`);
         
         // Verificar que la materia prima existe
         const materiaPrima = await models.MateriaPrima.findByPk(id);
         if (!materiaPrima) {
           await t.rollback();
+          console.log(`❌ Materia prima no encontrada: ${id}`);
           return res.status(404).json({ message: `Materia prima con ID ${id} no encontrada` });
         }
         
         // Añadir la relación entre receta e ingrediente
         await models.RecetaIngrediente.create({
-          RecetaId: recetaId,          // ✅ Usar 'recetaId' obtenido con .get()
+          RecetaId: recetaId,
           MateriaPrimaId: id,
           cantidad,
           unidad_medida
@@ -204,8 +223,10 @@ export const createReceta = async (req: Request, res: Response) => {
       
       // Confirmar la transacción
       await t.commit();
+      console.log('✅ Transacción confirmada');
       
       // Obtener la receta completa con los ingredientes
+      console.log(`🔄 Obteniendo receta completa con ID: ${recetaId}`);
       const recetaCompleta = await models.Receta.findByPk(recetaId, {
         include: [
           {
@@ -219,8 +240,11 @@ export const createReceta = async (req: Request, res: Response) => {
       
       // Verificar que recetaCompleta no sea null
       if (!recetaCompleta) {
+        console.error('❌ No se pudo recuperar la receta creada');
         return res.status(500).json({ message: 'Error al recuperar la receta creada' });
       }
+      
+      console.log('✅ Receta completa recuperada:', JSON.stringify(recetaCompleta.toJSON(), null, 2));
       
       // Agregar URL completa para la imagen o imagen por defecto
       const recetaObj = recetaCompleta.toJSON();
@@ -232,7 +256,7 @@ export const createReceta = async (req: Request, res: Response) => {
     } catch (error) {
       // Revertir la transacción en caso de error
       await t.rollback();
-      console.error('Error al crear receta:', error);
+      console.error('❌ Error al crear receta:', error);
       return res.status(500).json({ message: 'Error en el servidor' });
     }
   };
@@ -322,9 +346,6 @@ export const updateReceta = async (req: Request, res: Response) => {
       }, { transaction: t });
     }
 
-    // Confirmar la transacción
-    await t.commit();
-
     // Obtener la receta actualizada con sus ingredientes
     const recetaActualizada = await models.Receta.findByPk(id, {
       include: [
@@ -337,11 +358,21 @@ export const updateReceta = async (req: Request, res: Response) => {
       ]
     });
 
-    // Agregar URL de la imagen
-    const recetaObj = recetaActualizada?.toJSON();
-    if (recetaObj && recetaObj.imagen) {
-      recetaObj.imagen_url = `${req.protocol}://${req.get('host')}/uploads/recetas/${recetaObj.imagen}`;
+    if (!recetaActualizada) {
+      await t.rollback();
+      return res.status(500).json({ message: 'Error al recuperar la receta actualizada' });
     }
+
+    // Agregar URL de la imagen
+    const recetaObj = recetaActualizada.toJSON();
+    if (recetaObj.imagen) {
+      recetaObj.imagen_url = `${req.protocol}://${req.get('host')}/uploads/recetas/${recetaObj.imagen}`;
+    } else {
+      recetaObj.imagen_url = `${req.protocol}://${req.get('host')}/images/default-recipe.png`;
+    }
+
+    // Confirmar la transacción
+    await t.commit();
 
     return res.status(200).json(recetaObj);
   } catch (error) {

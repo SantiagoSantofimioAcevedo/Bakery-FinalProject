@@ -1,5 +1,4 @@
 import React, { createContext, useState, useEffect } from 'react';
-import api from '../services/api';
 import authService, { RegisterData } from '../services/authService';
 
 // Definición de tipos
@@ -74,9 +73,16 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
       localStorage.setItem('user', JSON.stringify(userData));
       localStorage.setItem('token', response.token);
       
-    } catch (error) {
-      console.error('Error durante el login:', error);
-      throw error;
+    } catch (error: any) {
+      // En lugar de lanzar el error, lo devolvemos con la información necesaria
+      const errorResponse = {
+        response: {
+          data: {
+            message: error.response?.data?.message || 'Error al iniciar sesión'
+          }
+        }
+      };
+      throw errorResponse;
     } finally {
       setIsLoading(false);
     }

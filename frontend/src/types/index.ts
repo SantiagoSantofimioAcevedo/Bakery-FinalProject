@@ -1,7 +1,7 @@
 export {};
 
 export interface Receta {
-  id?: number;
+  id: number;
   nombre: string;
   descripcion?: string;
   tiempo_preparacion: number;
@@ -10,32 +10,26 @@ export interface Receta {
   instrucciones: string;
   precio_venta: number;
   imagen?: string;
-  MateriaPrima?: RecetaIngrediente[];
+  imagen_url?: string;
+  MateriaPrimas?: MateriaPrima[];
 }
 
 export interface MateriaPrima {
   id: number;
   nombre: string;
-  descripcion?: string;
-  cantidad_disponible: number;
   unidad_medida: string;
-  precio_unitario: number;
-  categoria: string;
-  fecha_vencimiento?: string;
-  ubicacion?: string;
-  RecetaIngrediente?: {
-    cantidad: number;
-    unidad_medida: string;
-  };
+  RecetaIngrediente?: RecetaIngrediente;
 }
 
 export interface RecetaIngrediente {
-  id: number;
-  cantidad: number;
+  id?: number;
+  cantidad: string | number;
   unidad_medida: string;
+  nombre?: string;
 }
 
-export interface FormData {
+export interface RecipeFormData {
+  id?: number;
   nombre: string;
   descripcion: string;
   tiempo_preparacion: number;
@@ -45,4 +39,11 @@ export interface FormData {
   precio_venta: number;
   imagen: File | null;
   ingredientes: RecetaIngrediente[];
+}
+
+export interface FormIngrediente {
+  id: number;
+  nombre?: string;
+  cantidad: string | number;
+  unidad_medida: string;
 }

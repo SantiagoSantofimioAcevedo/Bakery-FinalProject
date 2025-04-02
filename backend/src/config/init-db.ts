@@ -1,6 +1,7 @@
 import sequelize from './database';
 import { DataTypes } from 'sequelize';
 import bcrypt from 'bcrypt';
+import { PasswordResetModel } from '../models/types';
 
 // Definición de modelos
 const Usuario = sequelize.define('Usuario', {
@@ -234,8 +235,8 @@ const createInitialAdmin = async () => {
 
 export const initDatabase = async () => {
   try {
-    // Primero sincronizar todo excepto RecetaIngrediente
-    await sequelize.sync();
+    // Sincronizar la base de datos con alter para preservar datos
+    await sequelize.sync({ alter: true });
     
     // Luego sincronizar la tabla RecetaIngrediente sin forzar su recreación
     await RecetaIngrediente.sync({ alter: true });

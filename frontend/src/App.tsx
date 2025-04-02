@@ -5,6 +5,8 @@ import { useAuth } from './hooks/useAuth';
 import MainLayout from '../../frontend/src/layout/MainLayout';
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
+import ForgotPassword from './pages/auth/ForgotPassword';
+import ResetPassword from './pages/auth/ResetPassword';
 import Dashboard from './pages/dashboard/Dashboard';
 import InventoryList from './pages/inventory/InventoryList';
 import RecipeList from './pages/recipes/RecipeList';
@@ -37,6 +39,16 @@ const AppRoutes = () => {
       <Route 
         path="/register" 
         element={isAuthenticated ? <Navigate to="/dashboard" /> : <Register />}
+      />
+      
+      {/* Rutas de recuperación de contraseña */}
+      <Route 
+        path="/forgot-password" 
+        element={isAuthenticated ? <Navigate to="/dashboard" /> : <ForgotPassword />}
+      />
+      <Route 
+        path="/reset-password" 
+        element={isAuthenticated ? <Navigate to="/dashboard" /> : <ResetPassword />}
       />
       
       <Route

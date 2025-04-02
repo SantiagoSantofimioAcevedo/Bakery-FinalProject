@@ -1,43 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import api from '../../services/api';
-
-interface RecetaIngrediente {
-  cantidad: number;
-  unidad_medida: string;
-}
-
-interface MateriaPrima {
-  id: number;
-  nombre: string;
-  unidad_medida: string;
-  RecetaIngrediente?: RecetaIngrediente;
-}
-
-interface FormIngrediente {
-  id: number;
-  nombre?: string;
-  cantidad: number;
-  unidad_medida: string;
-}
-
-interface Receta {
-  id: number;
-  nombre: string;
-  descripcion: string;
-  tiempo_preparacion: number;
-  tiempo_horneado: number;
-  temperatura: number;
-  instrucciones: string;
-  precio_venta: number;
-  imagen?: string;
-  imagen_url?: string;
-  MateriaPrima?: MateriaPrima[];
-}
-
-interface FormData extends Omit<Partial<Receta>, 'ingredientes'> {
-  ingredientes: FormIngrediente[];
-}
+import { formatPrice } from '../../utils/formatters';
+import type { Receta, MateriaPrima, RecetaIngrediente, FormIngrediente, RecipeFormData } from '../../types';
 
 const RecipeList: React.FC = () => {
   const { token } = useAuth();
@@ -50,7 +15,7 @@ const RecipeList: React.FC = () => {
   const [currentRecipe, setCurrentRecipe] = useState<Receta | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   
-  const [formData, setFormData] = useState<FormData>({
+  const [formData, setFormData] = useState<RecipeFormData>({
     nombre: '',
     descripcion: '',
     tiempo_preparacion: 0,
@@ -58,12 +23,13 @@ const RecipeList: React.FC = () => {
     temperatura: 0,
     instrucciones: '',
     precio_venta: 0,
+    imagen: null,
     ingredientes: [],
   });
   
   const [newIngredient, setNewIngredient] = useState<FormIngrediente>({
     id: 0,
-    cantidad: 0,
+    cantidad: '',
     unidad_medida: '',
   });
 
@@ -137,20 +103,24 @@ const RecipeList: React.FC = () => {
     } else {
       setNewIngredient({
         ...newIngredient,
-        [name]: name === 'cantidad' ? parseFloat(value) : value,
+        [name]: name === 'cantidad' ? (value === '' ? '' : parseFloat(value)) : value,
       });
     }
   };
 
   const addIngredient = () => {
-    if (newIngredient.id === 0 || newIngredient.cantidad <= 0) {
+    const cantidad = typeof newIngredient.cantidad === 'string' 
+      ? parseFloat(newIngredient.cantidad) 
+      : newIngredient.cantidad;
+
+    if (newIngredient.id === 0 || !cantidad || cantidad <= 0) {
       alert('Por favor, seleccione un ingrediente y una cantidad válida');
       return;
     }
 
     const ingrediente: FormIngrediente = {
       id: newIngredient.id,
-      cantidad: newIngredient.cantidad,
+      cantidad,
       unidad_medida: newIngredient.unidad_medida,
       nombre: materiasPrimas.find(m => m.id === newIngredient.id)?.nombre,
     };
@@ -163,7 +133,7 @@ const RecipeList: React.FC = () => {
     // Resetear form de ingrediente
     setNewIngredient({
       id: 0,
-      cantidad: 0,
+      cantidad: '',
       unidad_medida: '',
     });
   };
@@ -206,10 +176,24 @@ const RecipeList: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!token) return;
+    if (!token) {
+      alert('No hay token de autenticación');
+      return;
+    }
 
     if (formData.ingredientes.length === 0) {
       alert('Debe agregar al menos un ingrediente a la receta');
+      return;
+    }
+
+    // Validaciones básicas
+    if (!formData.nombre || formData.nombre.trim() === '') {
+      alert('El nombre de la receta es obligatorio');
+      return;
+    }
+
+    if (formData.precio_venta <= 0) {
+      alert('El precio de venta debe ser mayor a 0');
       return;
     }
 
@@ -222,57 +206,123 @@ const RecipeList: React.FC = () => {
       
       // Preparar los datos en formato JSON
       const recetaData = {
-        nombre: formData.nombre,
-        descripcion: formData.descripcion || '',
-        tiempo_preparacion: formData.tiempo_preparacion || 0,
-        tiempo_horneado: formData.tiempo_horneado || 0,
-        temperatura: formData.temperatura || 0,
-        instrucciones: formData.instrucciones || '',
-        precio_venta: formData.precio_venta || 0,
+        nombre: formData.nombre.trim(),
+        descripcion: formData.descripcion?.trim() || '',
+        tiempo_preparacion: Math.max(0, formData.tiempo_preparacion || 0),
+        tiempo_horneado: Math.max(0, formData.tiempo_horneado || 0),
+        temperatura: Math.max(0, formData.temperatura || 0),
+        instrucciones: formData.instrucciones?.trim() || '',
+        precio_venta: Math.max(0, formData.precio_venta || 0),
         ingredientes: formData.ingredientes.map(ing => ({
           id: ing.id,
-          cantidad: ing.cantidad,
+          cantidad: typeof ing.cantidad === 'string' ? parseFloat(ing.cantidad) : ing.cantidad,
           unidad_medida: ing.unidad_medida
         }))
       };
 
+      console.log('🔍 Datos de la receta a enviar:', JSON.stringify(recetaData, null, 2));
+      console.log('🔍 Token de autenticación:', token ? 'Presente' : 'Ausente');
+
+      let response;
+      let recetaId;
+      
       // Si hay una imagen, usar FormData
       if (selectedImage) {
+        // Validar tamaño de la imagen (máximo 10MB)
+        if (selectedImage.size > 10 * 1024 * 1024) {
+          alert('La imagen no debe superar los 10MB');
+          return;
+        }
+
+        // Validar tipo de imagen
+        if (!selectedImage.type.startsWith('image/')) {
+          alert('El archivo debe ser una imagen');
+          return;
+        }
+
         const formDataToSend = new FormData();
-        
-        // Agregar la imagen
         formDataToSend.append('imagen', selectedImage);
-        
-        // Agregar los datos de la receta como JSON string
         formDataToSend.append('receta', JSON.stringify(recetaData));
 
-        const response = await api[method](url, formDataToSend, {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
-        });
+        console.log('📤 Enviando FormData con imagen');
+        console.log('📤 Tipo de imagen:', selectedImage.type);
+        console.log('📤 Tamaño de imagen:', selectedImage.size, 'bytes');
         
-        const data = response.data;
-        if (currentRecipe) {
-          setRecetas(recetas.map(r => r.id === currentRecipe.id ? data : r));
-        } else {
-          setRecetas([...recetas, data]);
+        try {
+          response = await api[method](url, formDataToSend, {
+            headers: {
+              'Content-Type': 'multipart/form-data',
+            },
+          });
+          console.log('✅ Respuesta exitosa con imagen:', response.status);
+        } catch (error: any) {
+          console.error('❌ Error al enviar con imagen:', error);
+          console.error('❌ Detalles del error:', error.response?.data);
+          throw error;
         }
       } else {
-        // Si no hay imagen, enviar solo los datos JSON
-        const response = await api[method](url, recetaData);
-        const data = response.data;
-        if (currentRecipe) {
-          setRecetas(recetas.map(r => r.id === currentRecipe.id ? data : r));
-        } else {
-          setRecetas([...recetas, data]);
+        console.log('📤 Enviando datos JSON sin imagen');
+        
+        try {
+          response = await api[method](url, recetaData);
+          console.log('✅ Respuesta exitosa sin imagen:', response.status);
+        } catch (error: any) {
+          console.error('❌ Error al enviar sin imagen:', error);
+          console.error('❌ Detalles del error:', error.response?.data);
+          throw error;
         }
       }
-      
-      resetForm();
+
+      // Verificar si la respuesta es exitosa
+      if (response.status === 200 || response.status === 201) {
+        const data = response.data;
+        console.log('✅ Datos de respuesta:', JSON.stringify(data, null, 2));
+        
+        recetaId = data.id;
+        
+        // Si es una creación exitosa, intentar obtener la receta completa
+        if (method === 'post' && recetaId) {
+          try {
+            console.log(`🔄 Intentando obtener la receta completa con ID: ${recetaId}`);
+            const recetaCompleta = await api.get(`/api/recetas/${recetaId}`);
+            console.log('✅ Receta completa obtenida:', JSON.stringify(recetaCompleta.data, null, 2));
+            
+            if (recetaCompleta.data) {
+              setRecetas([...recetas, recetaCompleta.data]);
+            } else {
+              console.warn('⚠️ No se recibieron datos de la receta completa');
+              setRecetas([...recetas, data]);
+            }
+          } catch (error: any) {
+            console.warn('⚠️ No se pudo obtener la receta completa:', error);
+            console.warn('⚠️ Detalles del error:', error.response?.data);
+            
+            // Si no podemos obtener la receta completa, usamos los datos básicos
+            setRecetas([...recetas, data]);
+            
+            // Mostrar un mensaje al usuario
+            alert('La receta se creó correctamente, pero hubo un problema al cargar los detalles completos. Puede refrescar la página para ver la receta completa.');
+          }
+        } else if (currentRecipe) {
+          setRecetas(recetas.map(r => r.id === currentRecipe.id ? data : r));
+        }
+        
+        resetForm();
+      } else {
+        console.error('❌ Respuesta inesperada del servidor:', response.status);
+        throw new Error('Respuesta inesperada del servidor');
+      }
     } catch (err: any) {
-      setError(err.message || 'Ocurrió un error');
-      console.error(err);
+      console.error('❌ Error detallado:', err);
+      console.error('❌ Response data:', err.response?.data);
+      console.error('❌ Request config:', err.config);
+      
+      const errorMessage = err.response?.data?.message || 
+                          err.message || 
+                          'Ocurrió un error al guardar la receta';
+      
+      setError(errorMessage);
+      alert(errorMessage);
     }
   };
 
@@ -280,17 +330,18 @@ const RecipeList: React.FC = () => {
     // Asegurarse de que los valores numéricos sean números válidos
     setFormData({
       nombre: receta.nombre,
-      descripcion: receta.descripcion,
-      tiempo_preparacion: receta.tiempo_preparacion || 0,
-      tiempo_horneado: receta.tiempo_horneado || 0,
-      temperatura: receta.temperatura || 0,
+      descripcion: receta.descripcion || '',
+      tiempo_preparacion: receta.tiempo_preparacion,
+      tiempo_horneado: receta.tiempo_horneado,
+      temperatura: receta.temperatura,
       instrucciones: receta.instrucciones,
-      precio_venta: receta.precio_venta || 0,
-      ingredientes: receta.MateriaPrima?.map(mp => ({
+      precio_venta: receta.precio_venta,
+      imagen: null, // No podemos asignar la imagen existente directamente
+      ingredientes: receta.MateriaPrimas?.map(mp => ({
         id: mp.id,
-        cantidad: mp.RecetaIngrediente?.cantidad || 0,
-        unidad_medida: mp.RecetaIngrediente?.unidad_medida || '',
         nombre: mp.nombre,
+        cantidad: mp.RecetaIngrediente?.cantidad || 0,
+        unidad_medida: mp.RecetaIngrediente?.unidad_medida || mp.unidad_medida,
       })) || [],
     });
     setCurrentRecipe(receta);
@@ -300,21 +351,27 @@ const RecipeList: React.FC = () => {
 
   const handleView = async (receta: Receta) => {
     try {
+      console.log('🔵 Solicitando detalles de la receta:', receta.id);
+      
       // Obtener los detalles actualizados de la receta
       const response = await api.get(`/api/recetas/${receta.id}`);
       const recetaData = response.data;
       
+      console.log('🟢 Datos recibidos de la receta:', recetaData);
+      console.log('🟡 Ingredientes recibidos:', recetaData.MateriaPrimas);
+      
       // Asegurarse de que los ingredientes estén presentes
-      if (!recetaData.MateriaPrima) {
-        recetaData.MateriaPrima = [];
+      if (!recetaData.MateriaPrimas) {
+        console.log('⚠️ No se encontraron ingredientes en la receta');
+        recetaData.MateriaPrimas = [];
       }
       
       setCurrentRecipe(recetaData);
       setViewMode(true);
       setShowModal(true);
     } catch (err: any) {
+      console.error('❌ Error al cargar los detalles de la receta:', err);
       setError(err.message || 'Error al cargar los detalles de la receta');
-      console.error(err);
     }
   };
 
@@ -341,6 +398,7 @@ const RecipeList: React.FC = () => {
       temperatura: 0,
       instrucciones: '',
       precio_venta: 0,
+      imagen: null,
       ingredientes: [],
     });
     setSelectedImage(null);
@@ -433,7 +491,7 @@ const RecipeList: React.FC = () => {
                 </div>
                 
                 <div className="text-lg font-bold text-blue-600 mb-4">
-                  ${receta.precio_venta.toFixed(2)}
+                  {formatPrice(receta.precio_venta)}
                 </div>
                 
                 <div className="flex justify-end space-x-2">
@@ -450,7 +508,7 @@ const RecipeList: React.FC = () => {
                     Editar
                   </button>
                   <button
-                    onClick={() => handleDelete(receta.id)}
+                    onClick={() => receta.id && handleDelete(receta.id)}
                     className="px-3 py-1 bg-red-100 text-red-800 rounded hover:bg-red-200"
                   >
                     Eliminar
@@ -511,8 +569,8 @@ const RecipeList: React.FC = () => {
                       <div>
                         <h4 className="font-semibold mb-2">Ingredientes:</h4>
                         <ul className="list-disc pl-5 space-y-1">
-                          {currentRecipe?.MateriaPrima && currentRecipe.MateriaPrima.length > 0 ? (
-                            currentRecipe.MateriaPrima.map((ing, idx) => (
+                          {currentRecipe?.MateriaPrimas && currentRecipe.MateriaPrimas.length > 0 ? (
+                            currentRecipe.MateriaPrimas.map((ing, idx) => (
                               <li key={idx} className="text-gray-700">
                                 {ing.nombre}: {ing.RecetaIngrediente?.cantidad} {ing.RecetaIngrediente?.unidad_medida}
                               </li>
@@ -531,7 +589,7 @@ const RecipeList: React.FC = () => {
                       </div>
                       
                       <div className="text-xl font-bold text-blue-600">
-                        Precio de venta: ${currentRecipe?.precio_venta.toFixed(2)}
+                        Precio de venta: {formatPrice(currentRecipe?.precio_venta ?? 0)}
                       </div>
                       
                       <div className="flex justify-end">
@@ -717,6 +775,7 @@ const RecipeList: React.FC = () => {
                                 onChange={handleIngredientChange}
                                 min="0.01"
                                 step="0.01"
+                                placeholder="Ingrese la cantidad"
                                 className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
                               />
                             </div>
