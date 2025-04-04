@@ -17,8 +17,11 @@ interface DashboardData {
   }>;
   salesSummary: {
     today: number;
+    todayFormatted: string;
     week: number;
+    weekFormatted: string;
     month: number;
+    monthFormatted: string;
   };
   productionToday: number;
 }
@@ -30,7 +33,14 @@ const Dashboard: React.FC = () => {
   const [dashboardData, setDashboardData] = useState<DashboardData>({
     inventoryAlerts: [],
     topSellingProducts: [],
-    salesSummary: { today: 0, week: 0, month: 0 },
+    salesSummary: { 
+      today: 0, 
+      todayFormatted: '0',
+      week: 0, 
+      weekFormatted: '0',
+      month: 0,
+      monthFormatted: '0'
+    },
     productionToday: 0,
   });
 
@@ -84,11 +94,11 @@ const Dashboard: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-white p-6 rounded-lg shadow-md">
           <h3 className="text-lg font-semibold mb-2">Ventas de Hoy</h3>
-          <p className="text-3xl font-bold">${dashboardData.salesSummary.today.toFixed(2)}</p>
+          <p className="text-3xl font-bold">${dashboardData.salesSummary.todayFormatted}</p>
         </div>
         <div className="bg-white p-6 rounded-lg shadow-md">
           <h3 className="text-lg font-semibold mb-2">Ventas esta Semana</h3>
-          <p className="text-3xl font-bold">${dashboardData.salesSummary.week.toFixed(2)}</p>
+          <p className="text-3xl font-bold">${dashboardData.salesSummary.weekFormatted}</p>
         </div>
         <div className="bg-white p-6 rounded-lg shadow-md">
           <h3 className="text-lg font-semibold mb-2">Producción de Hoy</h3>

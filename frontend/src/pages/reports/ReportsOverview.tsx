@@ -6,9 +6,13 @@ import Alert from '../../components/common/Alert';
 
 interface DashboardData {
   ventasHoy: number;
+  ventasHoyFormatted: string;
   ventasSemana: number;
+  ventasSemanaFormatted: string;
   ventasMes: number;
+  ventasMesFormatted: string;
   productosPopulares: Array<{
+    id: number;
     nombre: string;
     cantidad: number;
     porcentaje: number;
@@ -21,6 +25,7 @@ interface DashboardData {
     unidad_medida: string;
   }>;
   gananciasNetas: number;
+  gananciasNetasFormatted: string;
 }
 
 const ReportsOverview: React.FC = () => {
@@ -75,20 +80,20 @@ const ReportsOverview: React.FC = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <Card title="Ventas de Hoy" className="shadow-md">
-          <div className="text-2xl font-bold text-green-600">
-            {formatCurrency(dashboardData.ventasHoy)}
+          <div className="text-2xl font-bold text-[#4D7C0F]">
+            ${dashboardData.ventasHoyFormatted}
           </div>
         </Card>
         
         <Card title="Ventas de la Semana" className="shadow-md">
-          <div className="text-2xl font-bold text-blue-600">
-            {formatCurrency(dashboardData.ventasSemana)}
+          <div className="text-2xl font-bold text-[#4D7C0F]">
+            ${dashboardData.ventasSemanaFormatted}
           </div>
         </Card>
         
         <Card title="Ventas del Mes" className="shadow-md">
-          <div className="text-2xl font-bold text-purple-600">
-            {formatCurrency(dashboardData.ventasMes)}
+          <div className="text-2xl font-bold text-[#4D7C0F]">
+            ${dashboardData.ventasMesFormatted}
           </div>
         </Card>
       </div>
@@ -143,7 +148,7 @@ const ReportsOverview: React.FC = () => {
 
       <Card title="Ganancias Netas" className="shadow-md">
         <div className="text-3xl font-bold text-emerald-600 text-center py-4">
-          {formatCurrency(dashboardData.gananciasNetas)}
+          ${dashboardData.gananciasNetasFormatted}
         </div>
       </Card>
     </div>

@@ -61,7 +61,8 @@ export const validarFechas = (req: Request, res: Response, next: NextFunction) =
   const { fechaInicio, fechaFin } = req.query;
   
   if (!fechaInicio || !fechaFin) {
-    return res.status(400).json({ message: 'Debe proporcionar fechas de inicio y fin' });
+    const error = new Error('Debe proporcionar fechas de inicio y fin');
+    return next(error);
   }
   
   try {
@@ -77,7 +78,8 @@ export const validarFechas = (req: Request, res: Response, next: NextFunction) =
     req.fechaFin = fin;
     next();
   } catch (error) {
-    return res.status(400).json({ message: 'Formato de fecha inválido' });
+    const err = new Error('Formato de fecha inválido');
+    next(err);
   }
 };
 
@@ -97,8 +99,7 @@ export const getReporteVentas = async (req: Request, res: Response) => {
       where: {
         fecha_hora: {
           [Op.between]: [inicio, fin]
-        },
-        anulada: false // Solo ventas no anuladas
+        }
       },
       include: [
         {
@@ -436,6 +437,176 @@ export const getReporteConsumoMateriasPrimas = async (req: Request, res: Respons
     return res.status(500).json({ 
       message: 'Error en el servidor', 
       details: process.env.NODE_ENV === 'development' ? message : undefined 
+    });
+  }
+};
+
+// Obtener resumen para el dashboard de reportes
+export const getDashboardData = async (req: Request, res: Response) => {
+  console.log('📊 Petición recibida en getDashboardData');
+  try {
+    // Obtener fecha de hoy
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    console.log('📅 Fecha de hoy:', today);
+    
+    // Obtener fecha de inicio de semana (domingo)
+    const weekStart = new Date(today);
+    weekStart.setDate(today.getDate() - today.getDay());
+    console.log('📅 Inicio de semana:', weekStart);
+    
+    // Obtener fecha de inicio de mes
+    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+    console.log('📅 Inicio de mes:', monthStart);
+    
+    // Obtener ventas de hoy
+    console.log('💰 Consultando ventas de hoy...');
+    const ventasHoy = await models.Venta.findAll({
+      attributes: [
+        [sequelize.fn('SUM', sequelize.col('total')), 'total']
+      ],
+      where: {
+        fecha_hora: {
+          [Op.gte]: today
+        }
+      }
+    });
+    console.log('💰 Ventas de hoy:', ventasHoy[0]?.get('total') || 0);
+    
+    // Obtener ventas de la semana
+    console.log('💰 Consultando ventas de la semana...');
+    const ventasSemana = await models.Venta.findAll({
+      attributes: [
+        [sequelize.fn('SUM', sequelize.col('total')), 'total']
+      ],
+      where: {
+        fecha_hora: {
+          [Op.gte]: weekStart
+        }
+      }
+    });
+    console.log('💰 Ventas de la semana:', ventasSemana[0]?.get('total') || 0);
+    
+    // Obtener ventas del mes
+    console.log('💰 Consultando ventas del mes...');
+    const ventasMes = await models.Venta.findAll({
+      attributes: [
+        [sequelize.fn('SUM', sequelize.col('total')), 'total']
+      ],
+      where: {
+        fecha_hora: {
+          [Op.gte]: monthStart
+        }
+      }
+    });
+    console.log('💰 Ventas del mes:', ventasMes[0]?.get('total') || 0);
+    
+    // Obtener productos más populares
+    console.log('🍞 Consultando productos más populares...');
+    let productosPopulares: any[] = [];
+    let productosFormateados: Array<{id: number, nombre: string, cantidad: number, porcentaje: number}> = [];
+    try {
+      productosPopulares = await models.DetalleVenta.findAll({
+        attributes: [
+          'RecetumId',
+          [sequelize.fn('SUM', sequelize.col('cantidad')), 'cantidad']
+        ],
+        include: [{
+          model: models.Venta,
+          as: 'Ventum',
+          attributes: [],
+          where: {
+            fecha_hora: {
+              [Op.gte]: monthStart
+            }
+          },
+          required: true
+        }, {
+          model: models.Receta,
+          as: 'Recetum',
+          attributes: ['nombre'],
+          required: true
+        }],
+        group: ['RecetumId', 'Recetum.id', 'Recetum.nombre'],
+        order: [[sequelize.fn('SUM', sequelize.col('cantidad')), 'DESC']],
+        limit: 5
+      });
+      console.log('🍞 Productos populares encontrados:', productosPopulares.length);
+      
+      // Calcular porcentajes de productos populares
+      const totalProductosVendidos = productosPopulares.reduce((sum: number, item: any) => {
+        return sum + parseInt(item.get('cantidad'), 10);
+      }, 0);
+      console.log('🍞 Total productos vendidos:', totalProductosVendidos);
+      
+      productosFormateados = productosPopulares.map((item: any) => {
+        const cantidad = parseInt(item.get('cantidad'), 10);
+        const porcentaje = totalProductosVendidos ? Math.round((cantidad / totalProductosVendidos) * 100) : 0;
+        return {
+          id: item.get('RecetumId'),
+          nombre: item.Recetum.nombre,
+          cantidad,
+          porcentaje
+        };
+      });
+    } catch (error) {
+      console.error('❌ Error al consultar productos populares:', error);
+      // Si hay error en los productos populares, continuamos con el resto del dashboard
+    }
+    
+    // Obtener materias primas con stock bajo
+    console.log('📦 Consultando materias primas con stock bajo...');
+    let materiasConAlerta: any[] = [];
+    try {
+      materiasConAlerta = await models.MateriaPrima.findAll({
+        where: {
+          cantidad_stock: {
+            [Op.lte]: sequelize.col('umbral_minimo')
+          }
+        },
+        order: [
+          [sequelize.literal('cantidad_stock / umbral_minimo'), 'ASC']
+        ],
+        limit: 5
+      });
+      console.log('📦 Materias primas con alerta encontradas:', materiasConAlerta.length);
+    } catch (error) {
+      console.error('❌ Error al consultar materias primas con stock bajo:', error);
+      // Si hay error en las materias primas, continuamos con el resto del dashboard
+    }
+    
+    // Calcular ganancias netas (podría requerir lógica adicional según la estructura de datos)
+    // Para este ejemplo, usamos 30% del total de ventas del mes como estimación
+    const gananciasNetas = Number(ventasMes[0]?.get('total')) * 0.3 || 0;
+    console.log('💵 Ganancias netas estimadas:', gananciasNetas);
+    
+    // Formatear números a pesos colombianos
+    const formatCOP = (value: number): string => {
+      return value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    };
+    
+    const response = {
+      ventasHoy: Number(ventasHoy[0]?.get('total')) || 0,
+      ventasHoyFormatted: formatCOP(Number(ventasHoy[0]?.get('total')) || 0),
+      ventasSemana: Number(ventasSemana[0]?.get('total')) || 0,
+      ventasSemanaFormatted: formatCOP(Number(ventasSemana[0]?.get('total')) || 0),
+      ventasMes: Number(ventasMes[0]?.get('total')) || 0,
+      ventasMesFormatted: formatCOP(Number(ventasMes[0]?.get('total')) || 0),
+      productosPopulares: productosFormateados,
+      inventarioBajo: materiasConAlerta,
+      gananciasNetas,
+      gananciasNetasFormatted: formatCOP(gananciasNetas)
+    };
+    
+    console.log('✅ Respuesta preparada para enviar:', response);
+    return res.status(200).json(response);
+  } catch (error) {
+    console.error('❌ Error al obtener datos del dashboard de reportes:', error);
+    const message = error instanceof Error ? error.message : 'Error desconocido';
+    return res.status(500).json({ 
+      message: 'Error en el servidor', 
+      details: process.env.NODE_ENV === 'development' ? message : undefined,
+      stack: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.stack : undefined) : undefined
     });
   }
 };
