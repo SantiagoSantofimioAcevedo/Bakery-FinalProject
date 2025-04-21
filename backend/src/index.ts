@@ -9,6 +9,8 @@ import ventasRoutes from './routes/ventasRoutes';
 import produccionesRoutes from './routes/produccionRoutes';
 import dashboardRoutes from './routes/dashboardRoutes';
 import reportesRoutes from './routes/reportesRoutes';
+import ingresoRoutes from './routes/ingresoRoutes';
+import equipoRoutes from './routes/equipoRoutes';
 import path from 'path';
 import { Request, Response, NextFunction } from 'express';
 
@@ -42,6 +44,8 @@ app.use('/api', ventasRoutes);
 app.use('/api/producciones', produccionesRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/reportes', reportesRoutes);
+app.use('/api/ingresos', ingresoRoutes);
+app.use('/api/equipo', equipoRoutes);
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 app.use('/images', express.static(path.join(__dirname, '../public/images')));
 

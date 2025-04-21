@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { getDashboardData } from '../../services/reportService';
 import Card from '../../components/common/Card';
 import Alert from '../../components/common/Alert';
@@ -32,6 +32,7 @@ const ReportsOverview: React.FC = () => {
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -51,11 +52,8 @@ const ReportsOverview: React.FC = () => {
     fetchDashboardData();
   }, []);
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('es-MX', {
-      style: 'currency',
-      currency: 'MXN'
-    }).format(amount);
+  const handleCardClick = (route: string) => {
+    navigate(route);
   };
 
   if (loading) {
@@ -79,23 +77,38 @@ const ReportsOverview: React.FC = () => {
       <h1 className="text-2xl font-bold mb-6">Resumen de Reportes</h1>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <Card title="Ventas de Hoy" className="shadow-md">
-          <div className="text-2xl font-bold text-[#4D7C0F]">
+        <div 
+          onClick={() => handleCardClick('/sales/daily')}
+          className="bg-white p-6 rounded-lg shadow-md cursor-pointer hover:shadow-lg transition-shadow"
+        >
+          <h2 className="text-lg font-semibold text-gray-700">Ventas de Hoy</h2>
+          <p className="text-3xl font-bold text-[#4D7C0F] mt-2">
             ${dashboardData.ventasHoyFormatted}
-          </div>
-        </Card>
+          </p>
+          <p className="text-sm text-blue-600 mt-2">Click para ver detalles →</p>
+        </div>
         
-        <Card title="Ventas de la Semana" className="shadow-md">
-          <div className="text-2xl font-bold text-[#4D7C0F]">
+        <div 
+          onClick={() => handleCardClick('/sales/weekly')}
+          className="bg-white p-6 rounded-lg shadow-md cursor-pointer hover:shadow-lg transition-shadow"
+        >
+          <h2 className="text-lg font-semibold text-gray-700">Ventas de la Semana</h2>
+          <p className="text-3xl font-bold text-[#4D7C0F] mt-2">
             ${dashboardData.ventasSemanaFormatted}
-          </div>
-        </Card>
+          </p>
+          <p className="text-sm text-blue-600 mt-2">Click para ver detalles →</p>
+        </div>
         
-        <Card title="Ventas del Mes" className="shadow-md">
-          <div className="text-2xl font-bold text-[#4D7C0F]">
+        <div 
+          onClick={() => handleCardClick('/sales/monthly')}
+          className="bg-white p-6 rounded-lg shadow-md cursor-pointer hover:shadow-lg transition-shadow"
+        >
+          <h2 className="text-lg font-semibold text-gray-700">Ventas del Mes</h2>
+          <p className="text-3xl font-bold text-[#4D7C0F] mt-2">
             ${dashboardData.ventasMesFormatted}
-          </div>
-        </Card>
+          </p>
+          <p className="text-sm text-blue-600 mt-2">Click para ver detalles →</p>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">

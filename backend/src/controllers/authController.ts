@@ -1,10 +1,17 @@
 import { Request, Response } from 'express';
 import bcrypt from 'bcrypt';
-import jwt from 'jsonwebtoken';
+import jwt, { Secret } from 'jsonwebtoken';
 import { models } from '../config/init-db';
+import { UsuarioInstance } from '../types/models';
 
 // Interfaz para el payload del token
 interface TokenPayload {
+  id: number;
+  usuario: string;
+  rol: string;
+}
+
+interface JwtPayload {
   id: number;
   usuario: string;
   rol: string;
@@ -34,6 +41,11 @@ export const login = async (req: Request, res: Response) => {
       return res.status(401).json({ message: 'Credenciales inválidas' });
     }
 
+    // Actualizar última conexión
+    await user.update({
+      ultima_conexion: new Date()
+    });
+
     // Crear el payload del token
     const payload: TokenPayload = {
       id: user.get('id') as number,
@@ -42,11 +54,10 @@ export const login = async (req: Request, res: Response) => {
     };
 
     // Generar el token
-    const token = jwt.sign(
-        payload,
-        process.env.JWT_SECRET || 'panaderia_secret_key',
-        { expiresIn: process.env.JWT_EXPIRES_IN || '24h' } as jwt.SignOptions
-      );
+    const secretKey: Secret = process.env.JWT_SECRET || 'panaderia_secret_key';
+    const token = jwt.sign(payload, secretKey, {
+      expiresIn: '24h'
+    });
 
     // Responder con el token y datos del usuario
     return res.status(200).json({
@@ -57,7 +68,8 @@ export const login = async (req: Request, res: Response) => {
         nombre: user.get('nombre'),
         apellido: user.get('apellido'),
         usuario: user.get('usuario'),
-        rol: user.get('rol')
+        rol: user.get('rol'),
+        ultima_conexion: user.get('ultima_conexion')
       }
     });
   } catch (error) {

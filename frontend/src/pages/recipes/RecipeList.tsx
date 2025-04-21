@@ -2,7 +2,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import api from '../../services/api';
 import { formatPrice } from '../../utils/formatters';
+import { UNIT_TO_GRAMS, obtenerAbreviaturaUnidad } from '../../utils/unitConversion';
 import type { Receta, MateriaPrima, RecetaIngrediente, FormIngrediente, RecipeFormData } from '../../types';
+import Button from '../../components/common/Button';
+
+// Definir las unidades de medida disponibles
+const UNIDADES_MEDIDA = Object.keys(UNIT_TO_GRAMS);
 
 const RecipeList: React.FC = () => {
   const { token } = useAuth();
@@ -99,6 +104,11 @@ const RecipeList: React.FC = () => {
         ...newIngredient,
         id: parseInt(value),
         unidad_medida: selectedMateria ? selectedMateria.unidad_medida : '',
+      });
+    } else if (name === 'unidad_medida') {
+      setNewIngredient({
+        ...newIngredient,
+        unidad_medida: value,
       });
     } else {
       setNewIngredient({
@@ -308,6 +318,9 @@ const RecipeList: React.FC = () => {
         }
         
         resetForm();
+        
+        // Recargar la página después de guardar o actualizar exitosamente
+        window.location.reload();
       } else {
         console.error('❌ Respuesta inesperada del servidor:', response.status);
         throw new Error('Respuesta inesperada del servidor');
@@ -383,6 +396,9 @@ const RecipeList: React.FC = () => {
     try {
       await api.delete(`/api/recetas/${id}`);
       setRecetas(recetas.filter(r => r.id !== id));
+      
+      // Recargar la página después de eliminar exitosamente
+      window.location.reload();
     } catch (err: any) {
       setError(err.message || 'Ocurrió un error al eliminar');
       console.error(err);
@@ -420,16 +436,15 @@ const RecipeList: React.FC = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold">Recetas</h1>
-        <button
+        <Button
+          label="Nueva Receta"
+          variant="primary"
           onClick={() => {
             setCurrentRecipe(null);
             setViewMode(false);
             setShowModal(true);
           }}
-          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-        >
-          Nueva Receta
-        </button>
+        />
       </div>
 
       {error && (
@@ -485,34 +500,31 @@ const RecipeList: React.FC = () => {
                 <p className="text-gray-600 mb-4 line-clamp-2">{receta.descripcion}</p>
                 
                 <div className="flex justify-between items-center text-sm text-gray-500 mb-4">
-                  <div>Preparación: {receta.tiempo_preparacion} min</div>
+                  <div>Preparación: {receta.tiempo_preparacion} horas</div>
                   <div>Horneado: {receta.tiempo_horneado} min</div>
                   <div>{receta.temperatura}°C</div>
                 </div>
                 
-                <div className="text-lg font-bold text-blue-600 mb-4">
+                <div className="text-lg font-bold text-[#4D7C0F] mb-4">
                   {formatPrice(receta.precio_venta)}
                 </div>
                 
                 <div className="flex justify-end space-x-2">
-                  <button
+                  <Button
+                    label="Ver"
+                    variant="secondary"
                     onClick={() => handleView(receta)}
-                    className="px-3 py-1 bg-gray-100 text-gray-800 rounded hover:bg-gray-200"
-                  >
-                    Ver
-                  </button>
-                  <button
+                  />
+                  <Button
+                    label="Editar"
+                    variant="primary"
                     onClick={() => handleEdit(receta)}
-                    className="px-3 py-1 bg-blue-100 text-blue-800 rounded hover:bg-blue-200"
-                  >
-                    Editar
-                  </button>
-                  <button
+                  />
+                  <Button
+                    label="Eliminar"
+                    variant="danger"
                     onClick={() => receta.id && handleDelete(receta.id)}
-                    className="px-3 py-1 bg-red-100 text-red-800 rounded hover:bg-red-200"
-                  >
-                    Eliminar
-                  </button>
+                  />
                 </div>
               </div>
             </div>
@@ -554,7 +566,7 @@ const RecipeList: React.FC = () => {
                       <div className="grid grid-cols-3 gap-4 text-center">
                         <div className="bg-blue-50 p-3 rounded">
                           <div className="text-sm text-gray-500">Preparación</div>
-                          <div className="font-bold">{currentRecipe?.tiempo_preparacion} min</div>
+                          <div className="font-bold">{currentRecipe?.tiempo_preparacion} horas</div>
                         </div>
                         <div className="bg-blue-50 p-3 rounded">
                           <div className="text-sm text-gray-500">Horneado</div>
@@ -588,7 +600,7 @@ const RecipeList: React.FC = () => {
                         </div>
                       </div>
                       
-                      <div className="text-xl font-bold text-blue-600">
+                      <div className="text-xl font-bold text-[#4D7C0F]">
                         Precio de venta: {formatPrice(currentRecipe?.precio_venta ?? 0)}
                       </div>
                       
@@ -691,7 +703,7 @@ const RecipeList: React.FC = () => {
                         
                         <div className="grid grid-cols-3 gap-4">
                           <div>
-                            <label className="block text-sm font-medium text-gray-700">Tiempo Preparación (min)</label>
+                            <label className="block text-sm font-medium text-gray-700">Tiempo Preparación (horas)</label>
                             <input
                               type="number"
                               name="tiempo_preparacion"
@@ -699,7 +711,7 @@ const RecipeList: React.FC = () => {
                               onChange={handleInputChange}
                               required
                               min="1"
-                              step="1"
+                              step="0.5"
                               className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
                             />
                           </div>
@@ -780,7 +792,22 @@ const RecipeList: React.FC = () => {
                               />
                             </div>
                             
-                            <div className="flex items-end">
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700">Unidad de Medida</label>
+                              <select
+                                name="unidad_medida"
+                                value={newIngredient.unidad_medida}
+                                onChange={handleIngredientChange}
+                                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+                              >
+                                <option value="">Seleccionar...</option>
+                                {UNIDADES_MEDIDA.map(unidad => (
+                                  <option key={unidad} value={unidad}>{unidad}</option>
+                                ))}
+                              </select>
+                            </div>
+                            
+                            <div className="flex items-end col-span-3">
                               <button
                                 type="button"
                                 onClick={addIngredient}
@@ -799,7 +826,7 @@ const RecipeList: React.FC = () => {
                                 {formData.ingredientes.map((ing, index) => (
                                   <li key={index} className="py-2 flex justify-between items-center">
                                     <span>
-                                      {ing.nombre}: {ing.cantidad} {ing.unidad_medida}
+                                      {ing.nombre}: {ing.cantidad} {obtenerAbreviaturaUnidad(ing.unidad_medida)}
                                     </span>
                                     <button
                                       type="button"
@@ -841,19 +868,16 @@ const RecipeList: React.FC = () => {
                         </div>
                         
                         <div className="flex justify-end space-x-3 pt-4">
-                          <button
-                            type="button"
+                          <Button
+                            label="Cancelar"
+                            variant="secondary"
                             onClick={resetForm}
-                            className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600"
-                          >
-                            Cancelar
-                          </button>
-                          <button
+                          />
+                          <Button
+                            label={currentRecipe ? 'Actualizar' : 'Crear Receta'}
+                            variant="primary"
                             type="submit"
-                            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                          >
-                            {currentRecipe ? 'Actualizar' : 'Crear'} Receta
-                          </button>
+                          />
                         </div>
                       </div>
                     </form>

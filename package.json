@@ -1,0 +1,20 @@
+{
+  "name": "sistema-panaderia",
+  "version": "1.0.0",
+  "description": "Sistema de gestión para panadería",
+  "scripts": {
+    "start:backend": "cd backend && npm run start",
+    "dev:backend": "cd backend && npm run dev",
+    "start:frontend": "cd frontend && npm start",
+    "dev:frontend": "cd frontend && npm start",
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "start": "concurrently \"npm run start:backend\" \"npm run start:frontend\""
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "sequelize-cli": "^6.6.2"
+  },
+  "dependencies": {
+    "notistack": "^3.0.1"
+  }
+}

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
+import Button from '../../components/common/Button';
 
 const Register: React.FC = () => {
   const [formData, setFormData] = useState({
@@ -49,7 +50,7 @@ const Register: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex bg-[#D4C686]">
+    <div className="min-h-screen flex bg-[#B5A25F]">
       {/* Espacio blanco izquierdo */}
       <div className="hidden lg:block lg:w-1/4 bg-[#F8F8F8] relative">
         <Link 
@@ -73,7 +74,7 @@ const Register: React.FC = () => {
 
       {/* Contenido central */}
       <div className="w-full lg:w-1/2 flex items-center justify-center p-4">
-        <div className="w-full max-w-md bg-[#D4C686] rounded-3xl p-8">
+        <div className="w-full max-w-md bg-[#B5A25F] rounded-3xl p-8">
           <div className="mb-8">
             <h1 className="text-center text-5xl font-extrabold text-white mb-2">La Parveria</h1>
             <h2 className="text-center text-3xl font-bold text-white">Crear una cuenta</h2>
@@ -155,13 +156,13 @@ const Register: React.FC = () => {
               <option value="administrador">Administrador</option>
             </select>
 
-            <button
+            <Button
+              label={isLoading ? 'Registrando...' : 'Registrarse'}
+              variant="register"
               type="submit"
               disabled={isLoading}
-              className="w-full py-3 px-4 mt-6 bg-[#F5F1DE] text-gray-900 rounded-lg font-medium hover:bg-[#eae6d3] disabled:bg-gray-200 disabled:cursor-not-allowed transition-colors duration-200"
-            >
-              {isLoading ? 'Registrando...' : 'Registrarse'}
-            </button>
+              fullWidth
+            />
           </form>
         </div>
       </div>

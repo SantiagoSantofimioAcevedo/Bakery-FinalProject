@@ -9,7 +9,7 @@ export interface RecipeData {
 
 export const getRecipes = async () => {
   try {
-    const response = await api.get('/recetas');
+    const response = await api.get('/api/recetas');
     return response.data;
   } catch (error) {
     console.error('Error fetching recipes:', error);
@@ -19,7 +19,7 @@ export const getRecipes = async () => {
 
 export const getRecipeById = async (id: number) => {
   try {
-    const response = await api.get(`/recetas/${id}`);
+    const response = await api.get(`/api/recetas/${id}`);
     return response.data;
   } catch (error) {
     console.error(`Error fetching recipe with id ${id}:`, error);
@@ -29,7 +29,7 @@ export const getRecipeById = async (id: number) => {
 
 export const createRecipe = async (recipeData: RecipeData) => {
   try {
-    const response = await api.post('/recetas', recipeData);
+    const response = await api.post('/api/recetas', recipeData);
     return response.data;
   } catch (error) {
     console.error('Error creating recipe:', error);
@@ -39,7 +39,7 @@ export const createRecipe = async (recipeData: RecipeData) => {
 
 export const updateRecipe = async (id: number, recipeData: RecipeData) => {
   try {
-    const response = await api.put(`/recetas/${id}`, recipeData);
+    const response = await api.put(`/api/recetas/${id}`, recipeData);
     return response.data;
   } catch (error) {
     console.error(`Error updating recipe with id ${id}:`, error);
@@ -49,7 +49,7 @@ export const updateRecipe = async (id: number, recipeData: RecipeData) => {
 
 export const deleteRecipe = async (id: number) => {
   try {
-    await api.delete(`/recetas/${id}`);
+    await api.delete(`/api/recetas/${id}`);
   } catch (error) {
     console.error(`Error deleting recipe with id ${id}:`, error);
     throw error;

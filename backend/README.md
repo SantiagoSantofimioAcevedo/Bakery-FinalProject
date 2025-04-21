@@ -70,4 +70,63 @@ Si encuentras errores al crear o restaurar backups:
 1. Verificar que las credenciales de la base de datos son correctas
 2. Asegurarte de que tienes permisos de escritura en la carpeta de backups
 3. Verificar que MySQL está instalado y accesible desde la línea de comandos
-4. Revisar los logs de error en la consola 
+4. Revisar los logs de error en la consola
+
+# Sistema de Panadería - Backend
+
+## Configuración de la Base de Datos
+
+### Usando Migraciones (Recomendado)
+
+Este proyecto utiliza Sequelize CLI para gestionar las migraciones y mantener la base de datos. Este enfoque es más robusto que usar `sync()` y evita problemas como el límite de índices en MySQL.
+
+#### Comandos para migraciones
+
+1. **Inicializar la base de datos**:
+   ```
+   npx sequelize-cli db:migrate
+   ```
+
+2. **Revertir la última migración**:
+   ```
+   npx sequelize-cli db:migrate:undo
+   ```
+
+3. **Revertir todas las migraciones**:
+   ```
+   npx sequelize-cli db:migrate:undo:all
+   ```
+
+4. **Crear una nueva migración**:
+   ```
+   npx sequelize-cli migration:generate --name nombre-descriptivo
+   ```
+
+### Ventajas del uso de migraciones
+
+- **Control preciso**: Las migraciones permiten controlar exactamente qué cambios se aplican a la base de datos.
+- **Versionamiento**: Cada migración representa una versión de la estructura de la base de datos.
+- **Reversibilidad**: Las migraciones pueden revertirse si hay problemas.
+- **Evita límites**: Controla manualmente la creación de índices para no superar el límite de 64 índices por tabla en MySQL.
+
+## Desarrollo
+
+Para iniciar el servidor en modo desarrollo:
+
+```
+npm run dev
+```
+
+## Producción
+
+Para compilar el proyecto para producción:
+
+```
+npm run build
+```
+
+Para iniciar el servidor en producción:
+
+```
+npm start
+``` 

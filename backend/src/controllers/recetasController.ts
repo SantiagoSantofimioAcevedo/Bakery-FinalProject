@@ -4,6 +4,10 @@ import sequelize from '../config/database';
 import path from 'path';
 import fs from 'fs';
 import multer from 'multer';
+import { getProductoDisponible } from './ventasController';
+// import { uploadToCloudinary, getImageExtension } from '../utils/cloudinary';
+import { Op } from 'sequelize';
+import { convertirUnidades } from '../utils/unitConversion';
 
 // Configuración de multer para la carga de imágenes
 const storage = multer.diskStorage({
@@ -539,6 +543,111 @@ export const prepararReceta = async (req: Request, res: Response) => {
     await t.rollback();
     console.error('Error al preparar receta:', error);
     return res.status(500).json({ message: 'Error en el servidor' });
+  }
+};
+
+// Verificar inventario para una receta
+export const checkInventory = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { cantidad } = req.query;
+    const cantidadNum = parseInt(cantidad as string);
+
+    if (!cantidadNum || cantidadNum <= 0) {
+      return res.status(400).json({ message: 'Debe especificar una cantidad válida' });
+    }
+
+    // Buscar la receta con sus ingredientes
+    const receta = await models.Receta.findByPk(id, {
+      include: [
+        {
+          model: models.MateriaPrima,
+          through: {
+            attributes: ['cantidad', 'unidad_medida']
+          }
+        }
+      ]
+    });
+
+    if (!receta) {
+      return res.status(404).json({ message: 'Receta no encontrada' });
+    }
+
+    // Verificar si hay suficientes ingredientes en stock
+    const ingredientes = receta.get('MateriaPrimas') as any[];
+    const ingredientesFaltantes = [];
+
+    for (const ingrediente of ingredientes) {
+      const cantidadNecesariaEnReceta = ingrediente.RecetaIngrediente.cantidad * cantidadNum;
+      const unidadEnReceta = ingrediente.RecetaIngrediente.unidad_medida;
+      const unidadEnStock = ingrediente.unidad_medida;
+      const cantidadDisponibleEnStock = ingrediente.cantidad_stock;
+
+      // Convertir la cantidad necesaria a la unidad del stock
+      let cantidadNecesariaConvertida = cantidadNecesariaEnReceta;
+      if (unidadEnReceta !== unidadEnStock) {
+        const cantidadConvertida = convertirUnidades(
+          cantidadNecesariaEnReceta,
+          unidadEnReceta,
+          unidadEnStock
+        );
+        
+        if (cantidadConvertida !== null) {
+          cantidadNecesariaConvertida = cantidadConvertida;
+        } else {
+          console.warn(`No se pudo convertir de ${unidadEnReceta} a ${unidadEnStock} para ${ingrediente.nombre}`);
+          // Si no se puede convertir, asumimos que no hay suficiente inventario por seguridad
+          ingredientesFaltantes.push({
+            nombre: ingrediente.nombre,
+            cantidad_requerida: cantidadNecesariaEnReceta,
+            cantidad_disponible: cantidadDisponibleEnStock,
+            unidad_medida_receta: unidadEnReceta,
+            unidad_medida_stock: unidadEnStock,
+            mensaje: `No se pudo convertir de ${unidadEnReceta} a ${unidadEnStock}`
+          });
+          continue;
+        }
+      }
+
+      if (cantidadDisponibleEnStock < cantidadNecesariaConvertida) {
+        ingredientesFaltantes.push({
+          nombre: ingrediente.nombre,
+          cantidad_requerida: cantidadNecesariaEnReceta,
+          cantidad_disponible: cantidadDisponibleEnStock,
+          unidad_medida_receta: unidadEnReceta,
+          unidad_medida_stock: unidadEnStock,
+          cantidad_convertida: cantidadNecesariaConvertida
+        });
+      }
+    }
+
+    return res.status(200).json({
+      sufficient: ingredientesFaltantes.length === 0,
+      missingIngredients: ingredientesFaltantes
+    });
+  } catch (error) {
+    console.error('Error al verificar inventario:', error);
+    return res.status(500).json({ message: 'Error en el servidor' });
+  }
+};
+
+// Obtener disponibilidad de una receta
+export const getDisponibilidadReceta = async (req: Request, res: Response) => {
+  const recetaId = parseInt(req.params.id);
+  
+  if (isNaN(recetaId)) {
+    return res.status(400).json({ message: 'ID de receta inválido' });
+  }
+  
+  try {
+    const disponibilidad = await getProductoDisponible(recetaId);
+    return res.status(200).json(disponibilidad);
+  } catch (error) {
+    console.error(`Error al obtener disponibilidad de receta ${recetaId}:`, error);
+    return res.status(500).json({ 
+      message: 'Error al obtener disponibilidad',
+      details: error instanceof Error ? error.message : 'Error desconocido' 
+    });
   }
 };
 

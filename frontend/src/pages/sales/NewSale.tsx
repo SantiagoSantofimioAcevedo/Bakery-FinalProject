@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getRecipes } from '../../services/recipeService';
 import { createSale, SaleItemData } from '../../services/salesService';
+import { getProductoDisponible, ProductoDisponible } from '../../services/productionService';
 import Button from '../../components/common/Button';
 import Alert from '../../components/common/Alert';
 import Table from '../../components/common/Table';
@@ -16,6 +17,12 @@ interface CartItem extends SaleItemData {
   nombre: string;
   precio_unitario: number;
   subtotal: number;
+}
+
+interface InventarioError {
+  receta: string;
+  disponible: number;
+  solicitado: number;
 }
 
 // Import or define the TableColumn type to match your Table component
@@ -33,6 +40,7 @@ const NewSale: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [disponibilidad, setDisponibilidad] = useState<ProductoDisponible | null>(null);
 
   useEffect(() => {
     const fetchRecipes = async () => {
@@ -62,8 +70,18 @@ const NewSale: React.FC = () => {
     }
   };
 
-  const handleRecipeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setSelectedRecipe(parseInt(e.target.value));
+  const handleRecipeChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const recetaId = parseInt(e.target.value);
+    setSelectedRecipe(recetaId);
+    
+    // Consultar la disponibilidad del producto seleccionado
+    try {
+      const disponibilidadData = await getProductoDisponible(recetaId);
+      setDisponibilidad(disponibilidadData);
+    } catch (error) {
+      console.error('Error al obtener disponibilidad:', error);
+      setDisponibilidad(null);
+    }
   };
 
   const addToCart = () => {
@@ -117,16 +135,38 @@ const NewSale: React.FC = () => {
 
     try {
       setSubmitting(true);
-      await createSale({
+      const saleData = {
         items: cart.map(item => ({
           recetaId: item.recetaId,
           cantidad: item.cantidad
         }))
-      });
+      };
+      
+      console.log("Enviando datos de venta:", JSON.stringify(saleData, null, 2));
+      
+      await createSale(saleData);
       navigate('/sales', { state: { success: true, message: 'Venta registrada correctamente' } });
-    } catch (err) {
-      setError('Error al registrar la venta');
-      console.error(err);
+    } catch (err: any) {
+      console.error('Error al registrar la venta:', err);
+      
+      // Verificar si es un error de inventario insuficiente
+      if (err.response?.data?.errores && Array.isArray(err.response.data.errores)) {
+        const errores = err.response.data.errores;
+        
+        // Construir un mensaje más detallado
+        let mensajeError = 'No hay suficiente inventario para completar la venta:\n';
+        
+        // Añadir detalle de cada producto con inventario insuficiente
+        errores.forEach((error: InventarioError) => {
+          mensajeError += `- ${error.receta}: disponible ${error.disponible}, solicitado ${error.solicitado}\n`;
+        });
+        
+        setError(mensajeError);
+      } else {
+        // Si es otro tipo de error, mostrar mensaje genérico o el del servidor
+        setError('Error al registrar la venta: ' + (err.response?.data?.message || 'Error desconocido'));
+      }
+      
       setSubmitting(false);
     }
   };
@@ -195,6 +235,19 @@ const NewSale: React.FC = () => {
                 </option>
               ))}
             </select>
+            
+            {/* Mostrar disponibilidad del producto seleccionado */}
+            {disponibilidad && (
+              <div className="mt-2 text-sm">
+                <p className={disponibilidad.disponible > 0 ? 'text-green-600' : 'text-red-600'}>
+                  Disponible: <strong>{disponibilidad.disponible}</strong> unidades
+                </p>
+                <p className="text-gray-500">
+                  (Producido: {disponibilidad.totalProducido}, 
+                  Vendido: {disponibilidad.totalVendido})
+                </p>
+              </div>
+            )}
           </div>
           
           <div>

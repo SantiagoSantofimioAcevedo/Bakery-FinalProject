@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../hooks/useAuth';
+import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
+import Button from '../../components/common/Button';
 
 // Definir las unidades de medida disponibles
 const UNIDADES_MEDIDA = [
@@ -28,6 +30,7 @@ interface MateriaPrima {
 
 const InventoryList: React.FC = () => {
   const { token } = useAuth();
+  const navigate = useNavigate();
   const [materiasPrimas, setMateriasPrimas] = useState<MateriaPrima[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -39,9 +42,11 @@ const InventoryList: React.FC = () => {
     costo_unitario: 0,
     umbral_minimo: 0,
   });
-  const [editMode, setEditMode] = useState(false);
-  const [editId, setEditId] = useState<number | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingCosto, setEditingCosto] = useState<number>(0);
+  const [editingUnidadId, setEditingUnidadId] = useState<number | null>(null);
+  const [editingUnidad, setEditingUnidad] = useState<string>('');
 
   // Cargar materias primas
   useEffect(() => {
@@ -71,45 +76,114 @@ const InventoryList: React.FC = () => {
     });
   };
 
+  // Manejar la edición del costo unitario
+  const handleEditCosto = (id: number, costoActual: number) => {
+    setEditingId(id);
+    setEditingCosto(costoActual);
+    // Cerrar cualquier otra edición abierta
+    setEditingUnidadId(null);
+  };
+
+  // Manejar el cambio en el campo de edición del costo
+  const handleCostoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setEditingCosto(parseFloat(e.target.value) || 0);
+  };
+
+  // Guardar el nuevo costo unitario
+  const handleSaveCosto = async (id: number) => {
+    try {
+      if (editingCosto < 0) {
+        setError('El costo unitario no puede ser negativo');
+        return;
+      }
+
+      const materiaPrima = materiasPrimas.find(mp => mp.id === id);
+      if (!materiaPrima) return;
+
+      await api.put(`/api/materias-primas/${id}`, {
+        ...materiaPrima,
+        costo_unitario: editingCosto
+      });
+
+      // Actualizar el estado local con el nuevo costo
+      setMateriasPrimas(materiasPrimas.map(mp => 
+        mp.id === id ? { ...mp, costo_unitario: editingCosto, fecha_ultima_actualizacion: new Date().toISOString() } : mp
+      ));
+
+      // Salir del modo edición
+      setEditingId(null);
+    } catch (err: any) {
+      setError(err.message || 'Error al actualizar el costo');
+      console.error(err);
+    }
+  };
+
+  // Cancelar la edición
+  const handleCancelEdit = () => {
+    setEditingId(null);
+    setEditingUnidadId(null);
+  };
+  
+  // Manejar la edición de la unidad de medida
+  const handleEditUnidad = (id: number, unidadActual: string) => {
+    setEditingUnidadId(id);
+    setEditingUnidad(unidadActual);
+    // Cerrar cualquier otra edición abierta
+    setEditingId(null);
+  };
+  
+  // Manejar el cambio en el campo de edición de la unidad
+  const handleUnidadChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setEditingUnidad(e.target.value);
+  };
+  
+  // Guardar la nueva unidad de medida
+  const handleSaveUnidad = async (id: number) => {
+    try {
+      if (!editingUnidad) {
+        setError('Debe seleccionar una unidad de medida');
+        return;
+      }
+      
+      const materiaPrima = materiasPrimas.find(mp => mp.id === id);
+      if (!materiaPrima) return;
+      
+      await api.put(`/api/materias-primas/${id}`, {
+        ...materiaPrima,
+        unidad_medida: editingUnidad
+      });
+      
+      // Actualizar el estado local con la nueva unidad
+      setMateriasPrimas(materiasPrimas.map(mp => 
+        mp.id === id ? { ...mp, unidad_medida: editingUnidad, fecha_ultima_actualizacion: new Date().toISOString() } : mp
+      ));
+      
+      // Salir del modo edición
+      setEditingUnidadId(null);
+    } catch (err: any) {
+      setError(err.message || 'Error al actualizar la unidad de medida');
+      console.error(err);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!token) return;
 
     try {
-      const url = editMode 
-        ? `/api/materias-primas/${editId}` 
-        : '/api/materias-primas';
+      const url = `/api/materias-primas`;
       
-      const method = editMode ? 'put' : 'post';
-      
-      const response = await api[method](url, formData);
+      const response = await api.post(url, formData);
       const data = response.data;
       
-      if (editMode) {
-        setMateriasPrimas(materiasPrimas.map(item => item.id === editId ? data : item));
-      } else {
-        setMateriasPrimas([...materiasPrimas, data]);
-      }
+      setMateriasPrimas([...materiasPrimas, data]);
       
       resetForm();
     } catch (err: any) {
       setError(err.message || 'Ocurrió un error');
       console.error(err);
     }
-  };
-
-  const handleEdit = (materia: MateriaPrima) => {
-    setFormData({
-      nombre: materia.nombre,
-      unidad_medida: materia.unidad_medida,
-      cantidad_stock: materia.cantidad_stock,
-      costo_unitario: materia.costo_unitario,
-      umbral_minimo: materia.umbral_minimo,
-    });
-    setEditMode(true);
-    setEditId(materia.id);
-    setShowModal(true);
   };
 
   const handleDelete = async (id: number) => {
@@ -134,8 +208,6 @@ const InventoryList: React.FC = () => {
       costo_unitario: 0,
       umbral_minimo: 0,
     });
-    setEditMode(false);
-    setEditId(null);
     setShowModal(false);
   };
 
@@ -152,12 +224,18 @@ const InventoryList: React.FC = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold">Inventario de Materias Primas</h1>
-        <button
-          onClick={() => setShowModal(true)}
-          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-        >
-          Agregar Materia Prima
-        </button>
+        <div className="flex gap-2">
+          <Button
+            label="Registrar Nuevo Ingreso"
+            variant="primary"
+            onClick={() => navigate('/inventory/incoming')}
+          />
+          <Button
+            label="Agregar Materia Prima"
+            variant="primary"
+            onClick={() => setShowModal(true)}
+          />
+        </div>
       </div>
 
       {error && (
@@ -198,7 +276,7 @@ const InventoryList: React.FC = () => {
                 Unidad de Medida
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Costo Unitario
+                Costo por Kilo
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Umbral Mínimo
@@ -227,33 +305,101 @@ const InventoryList: React.FC = () => {
                   <td className={`px-6 py-4 whitespace-nowrap text-sm ${
                     item.cantidad_stock < item.umbral_minimo ? 'text-red-600 font-bold' : 'text-gray-500'
                   }`}>
-                    {item.cantidad_stock}
+                    {new Intl.NumberFormat('es-CO', { maximumFractionDigits: 2 }).format(item.cantidad_stock)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {item.unidad_medida}
+                    {editingUnidadId === item.id ? (
+                      <div className="flex items-center space-x-2">
+                        <select
+                          value={editingUnidad}
+                          onChange={handleUnidadChange}
+                          className="w-32 py-1 px-2 border border-gray-300 rounded text-sm"
+                        >
+                          {UNIDADES_MEDIDA.map((unidad) => (
+                            <option key={unidad} value={unidad}>
+                              {unidad}
+                            </option>
+                          ))}
+                        </select>
+                        <button 
+                          onClick={() => handleSaveUnidad(item.id)}
+                          className="p-1 bg-green-500 text-white rounded hover:bg-green-600"
+                          title="Guardar"
+                        >
+                          ✓
+                        </button>
+                        <button 
+                          onClick={handleCancelEdit}
+                          className="p-1 bg-red-500 text-white rounded hover:bg-red-600"
+                          title="Cancelar"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ) : (
+                      <div 
+                        className="flex items-center cursor-pointer hover:text-blue-600"
+                        onClick={() => handleEditUnidad(item.id, item.unidad_medida)}
+                      >
+                        {item.unidad_medida}
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                        </svg>
+                      </div>
+                    )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    ${item.costo_unitario.toFixed(2)}
+                    {editingId === item.id ? (
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="number"
+                          value={editingCosto}
+                          onChange={handleCostoChange}
+                          className="w-24 py-1 px-2 border border-gray-300 rounded text-sm"
+                          min="0"
+                          step="0.01"
+                        />
+                        <button 
+                          onClick={() => handleSaveCosto(item.id)}
+                          className="p-1 bg-green-500 text-white rounded hover:bg-green-600"
+                          title="Guardar"
+                        >
+                          ✓
+                        </button>
+                        <button 
+                          onClick={handleCancelEdit}
+                          className="p-1 bg-red-500 text-white rounded hover:bg-red-600"
+                          title="Cancelar"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ) : (
+                      <div 
+                        className="flex items-center cursor-pointer hover:text-blue-600"
+                        onClick={() => handleEditCosto(item.id, item.costo_unitario)}
+                      >
+                        ${new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 }).format(item.costo_unitario)}
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                        </svg>
+                      </div>
+                    )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {item.umbral_minimo}
+                    {new Intl.NumberFormat('es-CO', { maximumFractionDigits: 2 }).format(item.umbral_minimo)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {new Date(item.fecha_ultima_actualizacion).toLocaleDateString()}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <button
-                      onClick={() => handleEdit(item)}
-                      className="text-blue-600 hover:text-blue-900 mr-4"
-                    >
-                      Editar
-                    </button>
-                    <button
-                      onClick={() => handleDelete(item.id)}
-                      className="text-red-600 hover:text-red-900"
-                    >
-                      Eliminar
-                    </button>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <div className="flex gap-2">
+                      <Button
+                        label="Eliminar"
+                        variant="danger"
+                        onClick={() => handleDelete(item.id)}
+                      />
+                    </div>
                   </td>
                 </tr>
               ))
@@ -267,7 +413,7 @@ const InventoryList: React.FC = () => {
         <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md">
             <h2 className="text-xl font-semibold mb-4">
-              {editMode ? 'Editar Materia Prima' : 'Agregar Materia Prima'}
+              'Agregar Materia Prima'
             </h2>
             <form onSubmit={handleSubmit}>
               <div className="mb-4">
@@ -322,7 +468,7 @@ const InventoryList: React.FC = () => {
               </div>
               <div className="mb-4">
                 <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="costo_unitario">
-                  Costo Unitario
+                  Costo por kilo
                 </label>
                 <input
                   type="number"
@@ -353,19 +499,16 @@ const InventoryList: React.FC = () => {
                 />
               </div>
               <div className="flex items-center justify-between">
-                <button
-                  type="button"
+                <Button
+                  label="Cancelar"
+                  variant="secondary"
                   onClick={resetForm}
-                  className="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
-                >
-                  Cancelar
-                </button>
-                <button
+                />
+                <Button
+                  label="Agregar"
+                  variant="primary"
                   type="submit"
-                  className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
-                >
-                  {editMode ? 'Actualizar' : 'Agregar'}
-                </button>
+                />
               </div>
             </form>
           </div>

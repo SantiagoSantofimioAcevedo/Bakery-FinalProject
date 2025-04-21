@@ -7,16 +7,20 @@ import Alert from '../../components/common/Alert';
 
 interface Production {
   id: number;
-  receta: {
-    id: number;
-    nombre: string;
-  };
+  RecetaId: number;
   cantidad: number;
   fecha_hora: string;
-  usuario: {
+  Usuario: {
+    id: number;
     nombre: string;
     apellido: string;
+    usuario: string;
   };
+  Recetum: {
+    id: number;
+    nombre: string;
+    descripcion: string;
+  } | null;
 }
 
 const ProductionList: React.FC = () => {
@@ -29,6 +33,7 @@ const ProductionList: React.FC = () => {
       try {
         setLoading(true);
         const data = await getProductions();
+        console.log('Producciones recibidas:', data);
         setProductions(data);
         setError(null);
       } catch (err) {
@@ -42,25 +47,30 @@ const ProductionList: React.FC = () => {
     fetchProductions();
   }, []);
 
-  // Corrección: Definir correctamente las columnas según la interfaz TableColumn<Production>
   const columns = [
     { header: 'ID', accessor: 'id' as keyof Production },
     {
       header: 'Producto',
-      accessor: (production: Production, index: number) => production.receta.nombre
+      accessor: (production: Production) => {
+        console.log('Datos de producción:', production);
+        if (production.Recetum) {
+          return production.Recetum.nombre;
+        }
+        return 'Sin receta';
+      }
     },
     { header: 'Cantidad', accessor: 'cantidad' as keyof Production },
     {
       header: 'Fecha y Hora',
-      accessor: (production: Production, index: number) => {
+      accessor: (production: Production) => {
         const date = new Date(production.fecha_hora);
         return date.toLocaleString('es-ES');
       }
     },
     {
       header: 'Responsable',
-      accessor: (production: Production, index: number) =>
-        `${production.usuario.nombre} ${production.usuario.apellido}`
+      accessor: (production: Production) =>
+        production.Usuario ? `${production.Usuario.nombre} ${production.Usuario.apellido}` : 'Sin información'
     }
   ];
 
@@ -68,9 +78,17 @@ const ProductionList: React.FC = () => {
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Registro de Producción</h1>
-        <Link to="/production/start">
-          <Button label="Iniciar Producción" variant="primary" />
-        </Link>
+        <div className="space-x-4">
+          <Link to="/production/daily">
+            <Button label="Producción de Hoy" variant="secondary" />
+          </Link>
+          <Link to="/production/weekly">
+            <Button label="Producción Semanal" variant="secondary" />
+          </Link>
+          <Link to="/production/start">
+            <Button label="Iniciar Producción" variant="primary" />
+          </Link>
+        </div>
       </div>
 
       {error && <Alert message={error} type="error" className="mb-4" />}

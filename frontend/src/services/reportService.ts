@@ -73,3 +73,27 @@ export const getIngredientUsageReport = async (ingredientId: number, startDate: 
     throw error;
   }
 };
+
+export const getProductPopularityReport = async (timeframe: string) => {
+  try {
+    console.log(`📊 Solicitando reporte de popularidad de productos para el período: ${timeframe}...`);
+    const response = await api.get(`/api/reportes/ventas?timeframe=${timeframe}`);
+    console.log('✅ Reporte de popularidad de productos recibido:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('❌ Error fetching product popularity report:', error);
+    throw error;
+  }
+};
+
+export const getMateriaPrimaReport = async (timeframe: string) => {
+  try {
+    console.log(`📊 Solicitando reporte de consumo de materias primas para el período: ${timeframe}...`);
+    const response = await api.get(`/api/reportes/materias-primas?timeframe=${timeframe}`);
+    console.log('✅ Reporte de materias primas recibido:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('❌ Error fetching raw materials report:', error);
+    throw error;
+  }
+};

@@ -15,3 +15,143 @@ code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
 }
+
+/* Estilos para impresión */
+@media print {
+  /* Ocultar elementos que no se desean imprimir */
+  header, 
+  nav, 
+  .bg-\[\#B5A25F\], 
+  button:not(.print-button),
+  [role="button"]:not(.print-content),
+  .print\:hidden {
+    display: none !important;
+  }
+
+  /* Mostrar el contenido que debe ser visible sólo en impresión */
+  .hidden {
+    display: block !important;
+  }
+
+  /* Forzar que elementos con display:none sean visibles en impresión */
+  div[style*="display: none"] {
+    display: block !important;
+  }
+
+  /* Resetear margenes y espaciados para impresión */
+  body {
+    margin: 0;
+    padding: 0;
+    background-color: white;
+    width: 100% !important;
+    font-size: 12px !important;
+  }
+
+  /* Ajustar el contenido principal para impresión */
+  main {
+    margin-left: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    overflow: visible !important;
+  }
+
+  /* Forzar el contenido a ocupar toda la página */
+  .flex-1, [class*="ml-"] {
+    margin-left: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow: visible !important;
+  }
+
+  /* Asegurar que la barra lateral no se muestre */
+  div[class*="bg-[#B5A25F]"], 
+  div[class*="w-80"], 
+  div[class*="w-32"],
+  aside {
+    display: none !important;
+    width: 0 !important; 
+  }
+
+  /* Centrar contenido de tablas e informes */
+  main > div {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow: visible !important;
+  }
+
+  /* Ajustar tablas para impresión */
+  table {
+    width: 100% !important;
+    margin: 0 auto !important;
+    page-break-inside: auto !important;
+    border-collapse: collapse !important;
+    font-size: 10px !important;
+  }
+
+  table th, table td {
+    padding: 4px !important;
+  }
+
+  /* Permitir saltos de página entre filas de tabla */
+  tr {
+    page-break-inside: avoid !important;
+  }
+
+  /* Asegurar que el header de la tabla se repita en cada página */
+  thead {
+    display: table-header-group !important;
+  }
+
+  /* Asegurar que las fechas se vean correctamente */
+  h2.text-xl {
+    font-size: 14px !important;
+    margin-top: 20px !important;
+    page-break-before: auto !important;
+    page-break-after: avoid !important;
+  }
+
+  /* Estilos específicos para reportes de ventas y producción */
+  h1, h2, h3, h4, h5, h6 {
+    text-align: center !important;
+    margin-bottom: 10px !important;
+  }
+
+  h1 {
+    font-size: 18px !important;
+  }
+
+  /* Evitar cortes en elementos importantes */
+  .no-break {
+    page-break-inside: avoid !important;
+  }
+
+  /* Margen superior para título principal */
+  h1:first-of-type {
+    margin-top: 10px !important;
+  }
+
+  /* Añadir soporte para múltiples páginas */
+  .mb-8 {
+    margin-bottom: 15px !important;
+    page-break-inside: avoid !important;
+  }
+
+  /* Reducir espaciado vertical para ahorrar espacio */
+  .mb-6, .mb-4 {
+    margin-bottom: 10px !important;
+  }
+
+  .py-4, .py-3 {
+    padding-top: 2px !important;
+    padding-bottom: 2px !important;
+  }
+
+  /* Hacer que el contenido de ventas por día sea visible en impresión */
+  div.print\:hidden {
+    display: block !important;
+  }
+}

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getRecipes } from '../../services/recipeService';
-import { createProduction, checkInventoryForRecipe } from '../../services/productionService';
+import { createProduction, checkInventoryForRecipe, InventoryError } from '../../services/productionService';
 import Button from '../../components/common/Button';
 import Alert from '../../components/common/Alert';
 import Card from '../../components/common/Card';
@@ -11,6 +11,7 @@ interface Recipe {
   nombre: string;
   descripcion: string;
   imagen: string;
+  imagen_url: string;
 }
 
 interface InventoryCheck {
@@ -31,6 +32,7 @@ const StartProduction: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [inventoryError, setInventoryError] = useState<InventoryError | null>(null);
   const [inventoryCheck, setInventoryCheck] = useState<InventoryCheck | null>(null);
 
   useEffect(() => {
@@ -85,13 +87,19 @@ const StartProduction: React.FC = () => {
 
     try {
       setSubmitting(true);
+      setError(null);
+      setInventoryError(null);
       await createProduction({
         recetaId: selectedRecipe.id,
         cantidad: quantity
       });
       navigate('/production', { state: { success: true, message: 'Producción iniciada correctamente' } });
-    } catch (err) {
-      setError('Error al iniciar la producción');
+    } catch (err: any) {
+      if (err.ingredientesFaltantes) {
+        setInventoryError(err as InventoryError);
+      } else {
+        setError('Error al iniciar la producción');
+      }
       console.error(err);
       setSubmitting(false);
     }
@@ -110,6 +118,28 @@ const StartProduction: React.FC = () => {
       <h1 className="text-2xl font-bold mb-6">Iniciar Producción</h1>
 
       {error && <Alert message={error} type="error" className="mb-4" />}
+      
+      {inventoryError && (
+        <Alert 
+          type="error" 
+          className="mb-4"
+          message={
+            <div>
+              <p className="font-medium">{inventoryError.message}</p>
+              {inventoryError.ingredientesFaltantes && (
+                <ul className="mt-2 list-disc pl-5">
+                  {inventoryError.ingredientesFaltantes.map((ingredient, idx) => (
+                    <li key={idx}>
+                      {ingredient.nombre}: Necesita {ingredient.cantidadNecesaria} {ingredient.unidad}, 
+                      disponible {ingredient.cantidadDisponible} {ingredient.unidad}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          }
+        />
+      )}
 
       {!selectedRecipe ? (
         <>
@@ -122,9 +152,9 @@ const StartProduction: React.FC = () => {
                 className="cursor-pointer hover:shadow-lg transition-shadow"
                 onClick={() => handleSelectRecipe(recipe)}
               >
-                {recipe.imagen && (
+                {recipe.imagen_url && (
                   <img 
-                    src={recipe.imagen} 
+                    src={recipe.imagen_url} 
                     alt={recipe.nombre} 
                     className="w-full h-48 object-cover rounded-t"
                   />
@@ -139,9 +169,9 @@ const StartProduction: React.FC = () => {
           <div className="mb-6">
             <h2 className="text-xl font-semibold mb-2">Receta seleccionada:</h2>
             <div className="flex items-center">
-              {selectedRecipe.imagen && (
+              {selectedRecipe.imagen_url && (
                 <img 
-                  src={selectedRecipe.imagen} 
+                  src={selectedRecipe.imagen_url} 
                   alt={selectedRecipe.nombre} 
                   className="w-16 h-16 object-cover rounded mr-4"
                 />

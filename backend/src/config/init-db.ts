@@ -1,7 +1,7 @@
 import sequelize from './database';
 import { DataTypes } from 'sequelize';
 import bcrypt from 'bcrypt';
-import { PasswordResetModel } from '../models/types';
+
 
 // Definición de modelos
 const Usuario = sequelize.define('Usuario', {
@@ -20,8 +20,7 @@ const Usuario = sequelize.define('Usuario', {
   },
   documento: {
     type: DataTypes.STRING,
-    allowNull: false,
-    unique: true
+    allowNull: false
   },
   usuario: {
     type: DataTypes.STRING,
@@ -35,6 +34,10 @@ const Usuario = sequelize.define('Usuario', {
   rol: {
     type: DataTypes.ENUM('panadero', 'administrador'),
     allowNull: false
+  },
+  ultima_conexion: {
+    type: DataTypes.DATE,
+    allowNull: true
   }
 });
 
@@ -185,6 +188,109 @@ const DetalleVenta = sequelize.define('DetalleVenta', {
   }
 });
 
+const IngresoMateriaPrima = sequelize.define('IngresoMateriaPrima', {
+  id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true
+  },
+  MateriaPrimaId: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    references: {
+      model: 'MateriaPrimas',
+      key: 'id'
+    }
+  },
+  UsuarioId: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    references: {
+      model: 'Usuarios',
+      key: 'id'
+    }
+  },
+  fecha_ingreso: {
+    type: DataTypes.DATE,
+    allowNull: false,
+    defaultValue: DataTypes.NOW
+  },
+  cantidad: {
+    type: DataTypes.FLOAT,
+    allowNull: false
+  },
+  unidad_medida: {
+    type: DataTypes.STRING,
+    allowNull: false
+  },
+  costo_unitario: {
+    type: DataTypes.FLOAT,
+    allowNull: false
+  },
+  costo_total: {
+    type: DataTypes.FLOAT,
+    allowNull: false
+  },
+  proveedor: {
+    type: DataTypes.STRING,
+    allowNull: false
+  },
+  numero_factura: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+  observaciones: {
+    type: DataTypes.TEXT,
+    allowNull: true
+  }
+});
+
+// Definir el modelo MovimientoInventario
+const MovimientoInventario = sequelize.define('MovimientoInventario', {
+  id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true
+  },
+  MateriaPrimaId: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    references: {
+      model: 'MateriaPrimas',
+      key: 'id'
+    }
+  },
+  UsuarioId: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    references: {
+      model: 'Usuarios',
+      key: 'id'
+    }
+  },
+  tipo: {
+    type: DataTypes.ENUM('ENTRADA', 'SALIDA', 'AJUSTE'),
+    allowNull: false
+  },
+  cantidad: {
+    type: DataTypes.FLOAT,
+    allowNull: false
+  },
+  unidad_medida: {
+    type: DataTypes.STRING,
+    allowNull: false
+  },
+  motivo: {
+    type: DataTypes.TEXT,
+    allowNull: false
+  },
+  fecha: {
+    type: DataTypes.DATE,
+    allowNull: false,
+    defaultValue: DataTypes.NOW
+  }
+});
+
 // Definir relaciones
 Receta.belongsToMany(MateriaPrima, { 
   through: RecetaIngrediente,
@@ -197,20 +303,79 @@ MateriaPrima.belongsToMany(Receta, {
   otherKey: 'RecetaId'
 });
 
-Produccion.belongsTo(Receta, { foreignKey: 'RecetumId', onDelete: 'CASCADE' });
-Receta.hasMany(Produccion, { foreignKey: 'RecetumId' });
+// Relaciones de Produccion
+Produccion.belongsTo(Receta, { 
+  foreignKey: 'RecetaId',
+  as: 'Recetum',
+  onDelete: 'CASCADE' 
+});
+Receta.hasMany(Produccion, { 
+  foreignKey: 'RecetaId',
+  as: 'Producciones'
+});
 
-Produccion.belongsTo(Usuario, { foreignKey: 'UsuarioId', onDelete: 'CASCADE' });
-Usuario.hasMany(Produccion, { foreignKey: 'UsuarioId' });
+Produccion.belongsTo(Usuario, { 
+  foreignKey: 'UsuarioId',
+  onDelete: 'CASCADE' 
+});
+Usuario.hasMany(Produccion, { 
+  foreignKey: 'UsuarioId'
+});
 
 Venta.belongsTo(Usuario);
 Usuario.hasMany(Venta);
 
-DetalleVenta.belongsTo(Venta);
-Venta.hasMany(DetalleVenta);
+DetalleVenta.belongsTo(Venta, {
+  foreignKey: 'VentumId',
+  as: 'Ventum'
+});
+Venta.hasMany(DetalleVenta, {
+  foreignKey: 'VentumId',
+  as: 'DetalleVenta'
+});
 
-DetalleVenta.belongsTo(Receta);
-Receta.hasMany(DetalleVenta);
+DetalleVenta.belongsTo(Receta, {
+  foreignKey: 'RecetumId',
+  as: 'Recetum'
+});
+Receta.hasMany(DetalleVenta, {
+  foreignKey: 'RecetumId',
+  as: 'DetalleVenta'
+});
+
+// Actualizar las relaciones de IngresoMateriaPrima
+IngresoMateriaPrima.belongsTo(MateriaPrima, {
+  foreignKey: 'MateriaPrimaId',
+  as: 'MateriaPrima'
+});
+MateriaPrima.hasMany(IngresoMateriaPrima, {
+  foreignKey: 'MateriaPrimaId'
+});
+
+IngresoMateriaPrima.belongsTo(Usuario, {
+  foreignKey: 'UsuarioId',
+  as: 'Usuario'
+});
+Usuario.hasMany(IngresoMateriaPrima, {
+  foreignKey: 'UsuarioId'
+});
+
+// Relaciones de MovimientoInventario
+MovimientoInventario.belongsTo(MateriaPrima, {
+  foreignKey: 'MateriaPrimaId',
+  as: 'MateriaPrima'
+});
+MateriaPrima.hasMany(MovimientoInventario, {
+  foreignKey: 'MateriaPrimaId'
+});
+
+MovimientoInventario.belongsTo(Usuario, {
+  foreignKey: 'UsuarioId',
+  as: 'Usuario'
+});
+Usuario.hasMany(MovimientoInventario, {
+  foreignKey: 'UsuarioId'
+});
 
 // Función para crear usuario administrador inicial
 const createInitialAdmin = async () => {
@@ -235,19 +400,31 @@ const createInitialAdmin = async () => {
 
 export const initDatabase = async () => {
   try {
-    // Sincronizar la base de datos con alter para preservar datos
-    await sequelize.sync({ alter: true });
+    // Comprobar la conexión a la base de datos
+    await sequelize.authenticate();
+    console.log('Conexión a la base de datos establecida correctamente');
     
-    // Luego sincronizar la tabla RecetaIngrediente sin forzar su recreación
-    await RecetaIngrediente.sync({ alter: true });
+    // En modo desarrollo, solo verificar si las tablas existen
+    // pero no modificar su estructura (esto lo harán las migraciones)
+    if (process.env.NODE_ENV !== 'production') {
+      await Usuario.sync({ force: false });
+      await MateriaPrima.sync({ force: false });
+      await Receta.sync({ force: false });
+      await RecetaIngrediente.sync({ force: false });
+      await Produccion.sync({ force: false });
+      await Venta.sync({ force: false });
+      await DetalleVenta.sync({ force: false });
+      await IngresoMateriaPrima.sync({ force: false });
+      await MovimientoInventario.sync({ force: false });
+      console.log('Verificación de tablas completada');
+    }
     
-    console.log('Base de datos sincronizada');
-    
-    // Crear el usuario administrador
+    // Crear el usuario administrador si no existe
     await createInitialAdmin();
     console.log('Inicialización de la base de datos completada');
   } catch (error) {
     console.error('Error al inicializar la base de datos:', error);
+    throw error; // Propagar el error para manejarlo en el nivel superior
   }
 };
 
@@ -259,5 +436,7 @@ export const models = {
   RecetaIngrediente,
   Produccion,
   Venta,
-  DetalleVenta
+  DetalleVenta,
+  IngresoMateriaPrima,
+  MovimientoInventario
 };

@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import bakeryImage from '../../assets/images/bakery-login.jpeg'; 
+import Button from '../../components/common/Button';
+
 const Login: React.FC = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -58,7 +60,7 @@ const Login: React.FC = () => {
       </div>
 
       {/* Columna derecha - Formulario */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center bg-[#D4C686] px-4 sm:px-6 lg:px-8">
+      <div className="w-full lg:w-1/2 flex items-center justify-center bg-[#B5A25F] px-4 sm:px-6 lg:px-8">
         <div className="max-w-md w-full space-y-8">
           <div>
             <h1 className="text-center text-5xl font-extrabold text-white mb-2">La Parveria</h1>
@@ -120,13 +122,13 @@ const Login: React.FC = () => {
               </div>
 
               <div>
-                <button
+                <Button
+                  label={isLoading ? 'Cargando...' : 'Iniciar sesión'}
+                  variant="primary"
                   type="submit"
                   disabled={isLoading}
-                  className="w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#D4C686] disabled:bg-gray-200 disabled:cursor-not-allowed transition-colors duration-200"
-                >
-                  {isLoading ? 'Cargando...' : 'Iniciar sesión'}
-                </button>
+                  fullWidth
+                />
               </div>
             </form>
 
