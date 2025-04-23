@@ -147,6 +147,9 @@ const Login: React.FC = () => {
                   Olvidé mi contraseña
                 </Link>
               )}
+              <p className="text-xs text-gray-500 mt-4 pt-2">
+                powered by Koal'App
+              </p>
             </div>
           </div>
         </div>
