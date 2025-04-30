@@ -5,18 +5,6 @@ import { registrarIngreso, obtenerTodosLosIngresos, editarIngreso, eliminarIngre
 import { MateriaPrima, IngresoMateriaPrima } from '../../types/inventory';
 import api from '../../services/api';
 
-const UNIDADES_MEDIDA = [
-  'Kilogramos (kg)',
-  'Gramos (g)',
-  'Libras (lb)',
-  'Litros (L)',
-  'Mililitros (ml)',
-  'Unidades (u)',
-  'Onzas (oz)',
-  'Tazas',
-  'Cucharadas',
-  'Cucharaditas'
-];
 
 interface FormData {
   MateriaPrimaId: string;

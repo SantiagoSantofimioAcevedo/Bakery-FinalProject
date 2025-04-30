@@ -5,8 +5,6 @@ import path from 'path';
 import fs from 'fs';
 import multer from 'multer';
 import { getProductoDisponible } from './ventasController';
-// import { uploadToCloudinary, getImageExtension } from '../utils/cloudinary';
-import { Op } from 'sequelize';
 import { convertirUnidades } from '../utils/unitConversion';
 
 // Configuración de multer para la carga de imágenes
@@ -407,7 +405,7 @@ export const deleteReceta = async (req: Request, res: Response) => {
     });
     
     const ventas = await models.DetalleVenta.findOne({
-      where: { RecetaId: id }
+      where: { RecetumId: id }
     });
     
     if (producciones || ventas) {

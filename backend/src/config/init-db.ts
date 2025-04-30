@@ -404,8 +404,7 @@ export const initDatabase = async () => {
     await sequelize.authenticate();
     console.log('Conexión a la base de datos establecida correctamente');
     
-    // En modo desarrollo, solo verificar si las tablas existen
-    // pero no modificar su estructura (esto lo harán las migraciones)
+  
     if (process.env.NODE_ENV !== 'production') {
       await Usuario.sync({ force: false });
       await MateriaPrima.sync({ force: false });

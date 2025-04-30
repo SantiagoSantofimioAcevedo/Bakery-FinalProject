@@ -15,3 +15,4 @@ const sequelize = new sequelize_1.Sequelize(process.env.DB_NAME || 'panaderia_db
     timezone: '-05:00', // Ajusta a tu zona horaria
 });
 exports.default = sequelize;
+//# sourceMappingURL=database.js.map

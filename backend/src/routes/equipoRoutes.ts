@@ -5,7 +5,8 @@ import {
   getTeamMembers,
   getTeamMember,
   updateTeamMember,
-  deleteTeamMember
+  deleteTeamMember,
+  createTeamMember
 } from '../controllers/equipoController';
 
 const router = express.Router();
@@ -29,6 +30,11 @@ router.put('/:id', async (req: Request, res: Response) => {
 
 router.delete('/:id', async (req: Request, res: Response) => {
   await deleteTeamMember(req, res);
+});
+
+// Ruta para crear un nuevo miembro del equipo
+router.post('/crear', async (req: Request, res: Response) => {
+  await createTeamMember(req, res);
 });
 
 export default router; 

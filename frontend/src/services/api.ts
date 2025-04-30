@@ -1,5 +1,6 @@
 import axios from 'axios';
 
+// En desarrollo usamos localhost, en producción usamos la URL de Render/Vercel
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3005';
 
 console.log('API URL:', API_URL); // Para depuración

@@ -2,7 +2,32 @@ import { Request, Response } from 'express';
 import bcrypt from 'bcrypt';
 import jwt, { Secret } from 'jsonwebtoken';
 import { models } from '../config/init-db';
-import { UsuarioInstance } from '../types/models';
+
+
+// Función para validar la seguridad de una contraseña
+const validatePassword = (password: string): string | null => {
+  if (password.length < 8) {
+    return 'La contraseña debe tener al menos 8 caracteres';
+  }
+  
+  // Verificar si la contraseña es una secuencia numérica simple
+  if (/^(0123|1234|2345|3456|4567|5678|6789|0987|9876|8765|7654|6543|5432|4321|3210)/.test(password)) {
+    return 'La contraseña no puede ser una secuencia numérica simple';
+  }
+  
+  // Verificar si la contraseña es demasiado común
+  const commonPasswords = ['password', 'contraseña', '12345678', 'qwerty', 'admin123'];
+  if (commonPasswords.includes(password.toLowerCase())) {
+    return 'La contraseña es demasiado común, elige una más segura';
+  }
+  
+  // Verificar si contiene al menos un número y una letra
+  if (!/\d/.test(password) || !/[a-zA-Z]/.test(password)) {
+    return 'La contraseña debe contener al menos un número y una letra';
+  }
+  
+  return null; // La contraseña es válida
+};
 
 // Interfaz para el payload del token
 interface TokenPayload {
@@ -93,6 +118,12 @@ export const register = async (req: Request, res: Response) => {
       return res.status(400).json({ message: 'Rol inválido' });
     }
 
+    // Validar la seguridad de la contraseña
+    const passwordError = validatePassword(contraseña);
+    if (passwordError) {
+      return res.status(400).json({ message: passwordError });
+    }
+
     // Verificar si el usuario ya existe
     const existingUser = await models.Usuario.findOne({ where: { usuario } });
     if (existingUser) {
@@ -162,6 +193,46 @@ export const getCurrentUser = async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error('Error al obtener usuario actual:', error);
+    return res.status(500).json({ message: 'Error en el servidor' });
+  }
+};
+
+// Verificación de credenciales de administrador
+export const verifyAdmin = async (req: Request, res: Response) => {
+  try {
+    const { adminUsuario, adminContraseña } = req.body;
+
+    // Validar que se enviaron todos los campos requeridos
+    if (!adminUsuario || !adminContraseña) {
+      return res.status(400).json({ message: 'Usuario y contraseña son requeridos' });
+    }
+
+    // Buscar el usuario en la base de datos
+    const admin = await models.Usuario.findOne({ where: { usuario: adminUsuario } });
+
+    // Verificar si el usuario existe
+    if (!admin) {
+      return res.status(401).json({ message: 'Credenciales inválidas' });
+    }
+
+    // Verificar la contraseña
+    const isValidPassword = await bcrypt.compare(adminContraseña, admin.get('contraseña') as string);
+    if (!isValidPassword) {
+      return res.status(401).json({ message: 'Credenciales inválidas' });
+    }
+
+    // Verificar que sea un administrador
+    if (admin.get('rol') !== 'administrador') {
+      return res.status(403).json({ message: 'No tiene permisos de administrador' });
+    }
+
+    // Responder que es un administrador válido
+    return res.status(200).json({ 
+      isAdmin: true,
+      message: 'Verificación de administrador exitosa'
+    });
+  } catch (error) {
+    console.error('Error en verificación de administrador:', error);
     return res.status(500).json({ message: 'Error en el servidor' });
   }
 };

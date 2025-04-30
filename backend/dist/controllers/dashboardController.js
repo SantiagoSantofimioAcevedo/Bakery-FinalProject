@@ -16,6 +16,10 @@ exports.getDashboardData = void 0;
 const init_db_1 = require("../config/init-db");
 const database_1 = __importDefault(require("../config/database"));
 const sequelize_1 = require("sequelize");
+// Función para formatear valores a pesos colombianos
+const formatCOP = (value) => {
+    return value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+};
 const getDashboardData = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     var _a, _b, _c;
     try {
@@ -35,12 +39,23 @@ const getDashboardData = (req, res) => __awaiter(void 0, void 0, void 0, functio
             ],
             include: [{
                     model: init_db_1.models.Receta,
-                    attributes: ['nombre']
+                    attributes: ['nombre', 'id'],
+                    as: 'Recetum',
+                    required: false // Make this a LEFT JOIN to show all sales even without recipe
                 }],
             group: ['RecetumId', 'Recetum.id', 'Recetum.nombre'],
             order: [[database_1.default.fn('SUM', database_1.default.col('cantidad')), 'DESC']],
             limit: 5
         });
+        // Log for debugging
+        console.log('Top selling products raw data:', JSON.stringify(topSellingProducts.map(p => {
+            var _a;
+            return ({
+                recetaId: p.get('RecetumId'),
+                recetaNombre: (_a = p.Recetum) === null || _a === void 0 ? void 0 : _a.nombre,
+                cantidad: p.get('cantidad')
+            });
+        }), null, 2));
         // Obtener resumen de ventas
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -85,20 +100,35 @@ const getDashboardData = (req, res) => __awaiter(void 0, void 0, void 0, functio
                 }
             }
         });
+        // For the "Sin nombre" product, try to find if it has a name in the Receta table
+        const sinNombreProducts = topSellingProducts.filter(product => { var _a; return !((_a = product.Recetum) === null || _a === void 0 ? void 0 : _a.nombre); });
+        if (sinNombreProducts.length > 0) {
+            console.log('Found products without names:', sinNombreProducts.map(p => `RecetumId: ${p.get('RecetumId')}, Cantidad: ${p.get('cantidad')}`));
+        }
+        // Obtener valores de ventas como números
+        const todaySales = Number((_a = salesSummary[0]) === null || _a === void 0 ? void 0 : _a.get('total')) || 0;
+        const weekSales = Number((_b = weeklySales[0]) === null || _b === void 0 ? void 0 : _b.get('total')) || 0;
+        const monthSales = Number((_c = monthlySales[0]) === null || _c === void 0 ? void 0 : _c.get('total')) || 0;
         return res.status(200).json({
             inventoryAlerts,
             topSellingProducts: topSellingProducts.map(product => {
                 var _a;
-                return ({
-                    id: product.get('RecetumId'),
-                    nombre: ((_a = product.Receta) === null || _a === void 0 ? void 0 : _a.nombre) || 'Sin nombre',
+                const recetumId = product.get('RecetumId');
+                const nombre = ((_a = product.Recetum) === null || _a === void 0 ? void 0 : _a.nombre) || 'Sin nombre';
+                console.log(`Mapping product: RecetumId=${recetumId}, nombre=${nombre}`);
+                return {
+                    id: recetumId,
+                    nombre,
                     cantidad: product.get('cantidad')
-                });
+                };
             }),
             salesSummary: {
-                today: ((_a = salesSummary[0]) === null || _a === void 0 ? void 0 : _a.get('total')) || 0,
-                week: ((_b = weeklySales[0]) === null || _b === void 0 ? void 0 : _b.get('total')) || 0,
-                month: ((_c = monthlySales[0]) === null || _c === void 0 ? void 0 : _c.get('total')) || 0
+                today: todaySales,
+                todayFormatted: formatCOP(todaySales),
+                week: weekSales,
+                weekFormatted: formatCOP(weekSales),
+                month: monthSales,
+                monthFormatted: formatCOP(monthSales)
             },
             productionToday
         });
@@ -114,3 +144,4 @@ const getDashboardData = (req, res) => __awaiter(void 0, void 0, void 0, functio
     }
 });
 exports.getDashboardData = getDashboardData;
+//# sourceMappingURL=dashboardController.js.map

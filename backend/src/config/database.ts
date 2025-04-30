@@ -11,7 +11,7 @@ const sequelize = new Sequelize(
     host: process.env.DB_HOST || 'localhost',
     dialect: 'mysql',
     logging: process.env.NODE_ENV === 'development' ? console.log : false,
-    timezone: '-05:00', // Ajusta a tu zona horaria
+    timezone: '-05:00', 
   }
 );
 

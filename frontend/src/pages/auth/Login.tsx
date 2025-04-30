@@ -133,12 +133,6 @@ const Login: React.FC = () => {
             </form>
 
             <div className="text-center space-y-2">
-              <Link 
-                to="/register" 
-                className="block text-sm text-gray-600 hover:text-gray-900 underline transition-colors duration-200"
-              >
-                Registrarse
-              </Link>
               {showForgotPassword && (
                 <Link 
                   to="/forgot-password" 

@@ -29,14 +29,14 @@ export const getDashboardData = async (req: Request, res: Response) => {
         model: models.Receta,
         attributes: ['nombre', 'id'],
         as: 'Recetum',
-        required: false // Make this a LEFT JOIN to show all sales even without recipe
+        required: false
       }],
       group: ['RecetumId', 'Recetum.id', 'Recetum.nombre'],
       order: [[sequelize.fn('SUM', sequelize.col('cantidad')), 'DESC']],
       limit: 5
     });
 
-    // Log for debugging
+  
     console.log('Top selling products raw data:', JSON.stringify(topSellingProducts.map(p => ({
       recetaId: p.get('RecetumId'),
       recetaNombre: (p as any).Recetum?.nombre,
@@ -94,7 +94,7 @@ export const getDashboardData = async (req: Request, res: Response) => {
       }
     });
 
-    // For the "Sin nombre" product, try to find if it has a name in the Receta table
+   
     const sinNombreProducts = topSellingProducts.filter(product => !(product as any).Recetum?.nombre);
     if (sinNombreProducts.length > 0) {
       console.log('Found products without names:', 

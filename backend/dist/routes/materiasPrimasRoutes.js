@@ -15,3 +15,4 @@ router.put('/materias-primas/:id', (0, asyncHandler_1.asyncHandler)(materiaPrima
 router.delete('/materias-primas/:id', (0, asyncHandler_1.asyncHandler)(materiaPrimaController_1.deleteMateriaPrima));
 router.patch('/materias-primas/:id/ajustar-stock', (0, asyncHandler_1.asyncHandler)(materiaPrimaController_1.adjustStock));
 exports.default = router;
+//# sourceMappingURL=materiasPrimasRoutes.js.map

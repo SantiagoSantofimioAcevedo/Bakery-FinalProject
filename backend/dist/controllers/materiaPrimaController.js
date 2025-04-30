@@ -186,3 +186,4 @@ const getLowStock = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
     }
 });
 exports.getLowStock = getLowStock;
+//# sourceMappingURL=materiaPrimaController.js.map

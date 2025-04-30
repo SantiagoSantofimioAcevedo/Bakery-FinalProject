@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { getAuthToken } from '../utils/auth';
+import { RegisterData } from './authService';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3005';
 
@@ -59,6 +60,19 @@ const equipoService = {
       return response.data.user;
     } catch (error) {
       console.error('Error al actualizar miembro del equipo:', error);
+      throw error;
+    }
+  },
+
+  // Crear un nuevo miembro
+  createTeamMember: async (userData: RegisterData): Promise<TeamMemberDetail> => {
+    try {
+      const response = await axios.post(`${API_URL}/api/equipo/crear`, userData, {
+        headers: { Authorization: `Bearer ${getAuthToken()}` }
+      });
+      return response.data.user;
+    } catch (error) {
+      console.error('Error al crear miembro del equipo:', error);
       throw error;
     }
   },

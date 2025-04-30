@@ -9,3 +9,4 @@ const router = (0, express_1.Router)();
 router.use(authMiddleware_1.authMiddleware);
 router.get('/', (0, asyncHandler_1.asyncHandler)(dashboardController_1.getDashboardData));
 exports.default = router;
+//# sourceMappingURL=dashboardRoutes.js.map

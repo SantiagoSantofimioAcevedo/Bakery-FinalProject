@@ -12,12 +12,14 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.prepararReceta = exports.deleteReceta = exports.updateReceta = exports.createReceta = exports.getRecetaById = exports.getAllRecetas = exports.upload = void 0;
+exports.getDisponibilidadReceta = exports.checkInventory = exports.prepararReceta = exports.deleteReceta = exports.updateReceta = exports.createReceta = exports.getRecetaById = exports.getAllRecetas = exports.upload = void 0;
 const init_db_1 = require("../config/init-db");
 const database_1 = __importDefault(require("../config/database"));
 const path_1 = __importDefault(require("path"));
 const fs_1 = __importDefault(require("fs"));
 const multer_1 = __importDefault(require("multer"));
+const ventasController_1 = require("./ventasController");
+const unitConversion_1 = require("../utils/unitConversion");
 // Configuración de multer para la carga de imágenes
 const storage = multer_1.default.diskStorage({
     destination: (req, file, cb) => {
@@ -89,6 +91,7 @@ exports.getAllRecetas = getAllRecetas;
 const getRecetaById = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { id } = req.params;
+        console.log('⭐ Obteniendo receta con ID:', id);
         const receta = yield init_db_1.models.Receta.findByPk(id, {
             include: [
                 {
@@ -100,16 +103,19 @@ const getRecetaById = (req, res) => __awaiter(void 0, void 0, void 0, function* 
             ]
         });
         if (!receta) {
+            console.log('❌ Receta no encontrada');
             return res.status(404).json({ message: 'Receta no encontrada' });
         }
         // Agregar URL completa para la imagen o imagen por defecto
         const recetaObj = receta.toJSON();
+        console.log('📦 Datos de la receta:', JSON.stringify(recetaObj, null, 2));
         if (recetaObj.imagen) {
             recetaObj.imagen_url = `${req.protocol}://${req.get('host')}/uploads/recetas/${recetaObj.imagen}`;
         }
         else {
             recetaObj.imagen_url = `${req.protocol}://${req.get('host')}/images/default-recipe.png`;
         }
+        console.log('🔍 MateriaPrima en la receta:', recetaObj.MateriaPrima);
         return res.status(200).json(recetaObj);
     }
     catch (error) {
@@ -126,26 +132,33 @@ const createReceta = (req, res) => __awaiter(void 0, void 0, void 0, function* (
         if (req.file) {
             try {
                 recetaData = JSON.parse(req.body.receta);
+                console.log('📥 Datos recibidos para crear receta (con imagen):', JSON.stringify(recetaData, null, 2));
             }
             catch (error) {
+                console.error('❌ Error al procesar los datos de la receta:', error);
                 return res.status(400).json({ message: 'Error al procesar los datos de la receta' });
             }
         }
         else {
             // Si no hay archivo, los datos vienen directamente en req.body
             recetaData = req.body;
+            console.log('📥 Datos recibidos para crear receta (sin imagen):', JSON.stringify(recetaData, null, 2));
         }
         const { nombre, descripcion, tiempo_preparacion, tiempo_horneado, temperatura, instrucciones, precio_venta, ingredientes } = recetaData;
+        console.log('🧾 Ingredientes recibidos:', JSON.stringify(ingredientes, null, 2));
         // Validar que se enviaron todos los campos requeridos
         if (!nombre || !tiempo_preparacion || !tiempo_horneado || !temperatura || !instrucciones || !precio_venta || !ingredientes) {
+            console.log('❌ Faltan campos requeridos');
             return res.status(400).json({ message: 'Todos los campos son requeridos' });
         }
         // Validar que el array de ingredientes no esté vacío
         if (!Array.isArray(ingredientes) || ingredientes.length === 0) {
+            console.log('❌ No se recibieron ingredientes');
             return res.status(400).json({ message: 'Debe incluir al menos un ingrediente' });
         }
         // Obtener el archivo de imagen si existe
         const imagen = req.file ? req.file.filename : null;
+        console.log('🖼️ Imagen:', imagen ? `Archivo: ${imagen}` : 'No se proporcionó imagen');
         // Crear la nueva receta
         const nuevaReceta = yield init_db_1.models.Receta.create({
             nombre,
@@ -157,20 +170,23 @@ const createReceta = (req, res) => __awaiter(void 0, void 0, void 0, function* (
             precio_venta,
             imagen
         }, { transaction: t });
+        console.log('✅ Receta base creada:', nuevaReceta.get('id'));
         // Acceder a 'id' de la receta creada de forma segura
         const recetaId = nuevaReceta.get('id');
         // Añadir los ingredientes a la receta
         for (const ingrediente of ingredientes) {
             const { id, cantidad, unidad_medida } = ingrediente;
+            console.log(`📝 Agregando ingrediente: ID=${id}, Cantidad=${cantidad}, Unidad=${unidad_medida}`);
             // Verificar que la materia prima existe
             const materiaPrima = yield init_db_1.models.MateriaPrima.findByPk(id);
             if (!materiaPrima) {
                 yield t.rollback();
+                console.log(`❌ Materia prima no encontrada: ${id}`);
                 return res.status(404).json({ message: `Materia prima con ID ${id} no encontrada` });
             }
             // Añadir la relación entre receta e ingrediente
             yield init_db_1.models.RecetaIngrediente.create({
-                RecetaId: recetaId, // ✅ Usar 'recetaId' obtenido con .get()
+                RecetaId: recetaId,
                 MateriaPrimaId: id,
                 cantidad,
                 unidad_medida
@@ -178,7 +194,9 @@ const createReceta = (req, res) => __awaiter(void 0, void 0, void 0, function* (
         }
         // Confirmar la transacción
         yield t.commit();
+        console.log('✅ Transacción confirmada');
         // Obtener la receta completa con los ingredientes
+        console.log(`🔄 Obteniendo receta completa con ID: ${recetaId}`);
         const recetaCompleta = yield init_db_1.models.Receta.findByPk(recetaId, {
             include: [
                 {
@@ -191,8 +209,10 @@ const createReceta = (req, res) => __awaiter(void 0, void 0, void 0, function* (
         });
         // Verificar que recetaCompleta no sea null
         if (!recetaCompleta) {
+            console.error('❌ No se pudo recuperar la receta creada');
             return res.status(500).json({ message: 'Error al recuperar la receta creada' });
         }
+        console.log('✅ Receta completa recuperada:', JSON.stringify(recetaCompleta.toJSON(), null, 2));
         // Agregar URL completa para la imagen o imagen por defecto
         const recetaObj = recetaCompleta.toJSON();
         recetaObj.imagen_url = recetaObj.imagen
@@ -203,7 +223,7 @@ const createReceta = (req, res) => __awaiter(void 0, void 0, void 0, function* (
     catch (error) {
         // Revertir la transacción en caso de error
         yield t.rollback();
-        console.error('Error al crear receta:', error);
+        console.error('❌ Error al crear receta:', error);
         return res.status(500).json({ message: 'Error en el servidor' });
     }
 });
@@ -274,8 +294,6 @@ const updateReceta = (req, res) => __awaiter(void 0, void 0, void 0, function* (
                 unidad_medida
             }, { transaction: t });
         }
-        // Confirmar la transacción
-        yield t.commit();
         // Obtener la receta actualizada con sus ingredientes
         const recetaActualizada = yield init_db_1.models.Receta.findByPk(id, {
             include: [
@@ -287,11 +305,20 @@ const updateReceta = (req, res) => __awaiter(void 0, void 0, void 0, function* (
                 }
             ]
         });
+        if (!recetaActualizada) {
+            yield t.rollback();
+            return res.status(500).json({ message: 'Error al recuperar la receta actualizada' });
+        }
         // Agregar URL de la imagen
-        const recetaObj = recetaActualizada === null || recetaActualizada === void 0 ? void 0 : recetaActualizada.toJSON();
-        if (recetaObj && recetaObj.imagen) {
+        const recetaObj = recetaActualizada.toJSON();
+        if (recetaObj.imagen) {
             recetaObj.imagen_url = `${req.protocol}://${req.get('host')}/uploads/recetas/${recetaObj.imagen}`;
         }
+        else {
+            recetaObj.imagen_url = `${req.protocol}://${req.get('host')}/images/default-recipe.png`;
+        }
+        // Confirmar la transacción
+        yield t.commit();
         return res.status(200).json(recetaObj);
     }
     catch (error) {
@@ -317,7 +344,7 @@ const deleteReceta = (req, res) => __awaiter(void 0, void 0, void 0, function* (
             where: { RecetaId: id }
         });
         const ventas = yield init_db_1.models.DetalleVenta.findOne({
-            where: { RecetaId: id }
+            where: { RecetumId: id }
         });
         if (producciones || ventas) {
             yield t.rollback();
@@ -435,3 +462,97 @@ const prepararReceta = (req, res) => __awaiter(void 0, void 0, void 0, function*
     }
 });
 exports.prepararReceta = prepararReceta;
+// Verificar inventario para una receta
+const checkInventory = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const { id } = req.params;
+        const { cantidad } = req.query;
+        const cantidadNum = parseInt(cantidad);
+        if (!cantidadNum || cantidadNum <= 0) {
+            return res.status(400).json({ message: 'Debe especificar una cantidad válida' });
+        }
+        // Buscar la receta con sus ingredientes
+        const receta = yield init_db_1.models.Receta.findByPk(id, {
+            include: [
+                {
+                    model: init_db_1.models.MateriaPrima,
+                    through: {
+                        attributes: ['cantidad', 'unidad_medida']
+                    }
+                }
+            ]
+        });
+        if (!receta) {
+            return res.status(404).json({ message: 'Receta no encontrada' });
+        }
+        // Verificar si hay suficientes ingredientes en stock
+        const ingredientes = receta.get('MateriaPrimas');
+        const ingredientesFaltantes = [];
+        for (const ingrediente of ingredientes) {
+            const cantidadNecesariaEnReceta = ingrediente.RecetaIngrediente.cantidad * cantidadNum;
+            const unidadEnReceta = ingrediente.RecetaIngrediente.unidad_medida;
+            const unidadEnStock = ingrediente.unidad_medida;
+            const cantidadDisponibleEnStock = ingrediente.cantidad_stock;
+            // Convertir la cantidad necesaria a la unidad del stock
+            let cantidadNecesariaConvertida = cantidadNecesariaEnReceta;
+            if (unidadEnReceta !== unidadEnStock) {
+                const cantidadConvertida = (0, unitConversion_1.convertirUnidades)(cantidadNecesariaEnReceta, unidadEnReceta, unidadEnStock);
+                if (cantidadConvertida !== null) {
+                    cantidadNecesariaConvertida = cantidadConvertida;
+                }
+                else {
+                    console.warn(`No se pudo convertir de ${unidadEnReceta} a ${unidadEnStock} para ${ingrediente.nombre}`);
+                    // Si no se puede convertir, asumimos que no hay suficiente inventario por seguridad
+                    ingredientesFaltantes.push({
+                        nombre: ingrediente.nombre,
+                        cantidad_requerida: cantidadNecesariaEnReceta,
+                        cantidad_disponible: cantidadDisponibleEnStock,
+                        unidad_medida_receta: unidadEnReceta,
+                        unidad_medida_stock: unidadEnStock,
+                        mensaje: `No se pudo convertir de ${unidadEnReceta} a ${unidadEnStock}`
+                    });
+                    continue;
+                }
+            }
+            if (cantidadDisponibleEnStock < cantidadNecesariaConvertida) {
+                ingredientesFaltantes.push({
+                    nombre: ingrediente.nombre,
+                    cantidad_requerida: cantidadNecesariaEnReceta,
+                    cantidad_disponible: cantidadDisponibleEnStock,
+                    unidad_medida_receta: unidadEnReceta,
+                    unidad_medida_stock: unidadEnStock,
+                    cantidad_convertida: cantidadNecesariaConvertida
+                });
+            }
+        }
+        return res.status(200).json({
+            sufficient: ingredientesFaltantes.length === 0,
+            missingIngredients: ingredientesFaltantes
+        });
+    }
+    catch (error) {
+        console.error('Error al verificar inventario:', error);
+        return res.status(500).json({ message: 'Error en el servidor' });
+    }
+});
+exports.checkInventory = checkInventory;
+// Obtener disponibilidad de una receta
+const getDisponibilidadReceta = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const recetaId = parseInt(req.params.id);
+    if (isNaN(recetaId)) {
+        return res.status(400).json({ message: 'ID de receta inválido' });
+    }
+    try {
+        const disponibilidad = yield (0, ventasController_1.getProductoDisponible)(recetaId);
+        return res.status(200).json(disponibilidad);
+    }
+    catch (error) {
+        console.error(`Error al obtener disponibilidad de receta ${recetaId}:`, error);
+        return res.status(500).json({
+            message: 'Error al obtener disponibilidad',
+            details: error instanceof Error ? error.message : 'Error desconocido'
+        });
+    }
+});
+exports.getDisponibilidadReceta = getDisponibilidadReceta;
+//# sourceMappingURL=recetasController.js.map

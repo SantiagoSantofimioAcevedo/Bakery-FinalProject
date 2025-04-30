@@ -42,6 +42,11 @@ export interface PasswordResetConfirm {
   newPassword: string;
 }
 
+export interface AdminVerifyCredentials {
+  adminUsuario: string;
+  adminContraseña: string;
+}
+
 export const login = async (credentials: LoginCredentials): Promise<AuthResponse> => {
   try {
     const response = await api.post('/api/auth/login', credentials);
@@ -54,6 +59,15 @@ export const login = async (credentials: LoginCredentials): Promise<AuthResponse
 export const register = async (userData: RegisterData): Promise<AuthResponse> => {
   try {
     const response = await api.post('/api/auth/register', userData);
+    return response.data;
+  } catch (error) {
+    throw error;
+  }
+};
+
+export const verifyAdminCredentials = async (credentials: AdminVerifyCredentials): Promise<{ isAdmin: boolean }> => {
+  try {
+    const response = await api.post('/api/auth/verify-admin', credentials);
     return response.data;
   } catch (error) {
     throw error;
@@ -89,6 +103,7 @@ export const resetPassword = async (data: PasswordResetConfirm): Promise<void> =
 const authService = {
   login,
   register,
+  verifyAdminCredentials,
   getCurrentUser,
   requestPasswordReset,
   resetPassword

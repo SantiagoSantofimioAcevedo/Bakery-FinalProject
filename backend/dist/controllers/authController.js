@@ -12,10 +12,30 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getCurrentUser = exports.register = exports.login = void 0;
+exports.verifyAdmin = exports.getCurrentUser = exports.register = exports.login = void 0;
 const bcrypt_1 = __importDefault(require("bcrypt"));
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const init_db_1 = require("../config/init-db");
+// Función para validar la seguridad de una contraseña
+const validatePassword = (password) => {
+    if (password.length < 8) {
+        return 'La contraseña debe tener al menos 8 caracteres';
+    }
+    // Verificar si la contraseña es una secuencia numérica simple
+    if (/^(0123|1234|2345|3456|4567|5678|6789|0987|9876|8765|7654|6543|5432|4321|3210)/.test(password)) {
+        return 'La contraseña no puede ser una secuencia numérica simple';
+    }
+    // Verificar si la contraseña es demasiado común
+    const commonPasswords = ['password', 'contraseña', '12345678', 'qwerty', 'admin123'];
+    if (commonPasswords.includes(password.toLowerCase())) {
+        return 'La contraseña es demasiado común, elige una más segura';
+    }
+    // Verificar si contiene al menos un número y una letra
+    if (!/\d/.test(password) || !/[a-zA-Z]/.test(password)) {
+        return 'La contraseña debe contener al menos un número y una letra';
+    }
+    return null; // La contraseña es válida
+};
 // Login de usuarios
 const login = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
@@ -35,6 +55,10 @@ const login = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
         if (!isValidPassword) {
             return res.status(401).json({ message: 'Credenciales inválidas' });
         }
+        // Actualizar última conexión
+        yield user.update({
+            ultima_conexion: new Date()
+        });
         // Crear el payload del token
         const payload = {
             id: user.get('id'),
@@ -42,7 +66,10 @@ const login = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
             rol: user.get('rol')
         };
         // Generar el token
-        const token = jsonwebtoken_1.default.sign(payload, process.env.JWT_SECRET || 'panaderia_secret_key', { expiresIn: process.env.JWT_EXPIRES_IN || '24h' });
+        const secretKey = process.env.JWT_SECRET || 'panaderia_secret_key';
+        const token = jsonwebtoken_1.default.sign(payload, secretKey, {
+            expiresIn: '24h'
+        });
         // Responder con el token y datos del usuario
         return res.status(200).json({
             message: 'Login exitoso',
@@ -52,7 +79,8 @@ const login = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
                 nombre: user.get('nombre'),
                 apellido: user.get('apellido'),
                 usuario: user.get('usuario'),
-                rol: user.get('rol')
+                rol: user.get('rol'),
+                ultima_conexion: user.get('ultima_conexion')
             }
         });
     }
@@ -73,6 +101,11 @@ const register = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
         // Validar que el rol sea válido
         if (rol !== 'panadero' && rol !== 'administrador') {
             return res.status(400).json({ message: 'Rol inválido' });
+        }
+        // Validar la seguridad de la contraseña
+        const passwordError = validatePassword(contraseña);
+        if (passwordError) {
+            return res.status(400).json({ message: passwordError });
         }
         // Verificar si el usuario ya existe
         const existingUser = yield init_db_1.models.Usuario.findOne({ where: { usuario } });
@@ -143,3 +176,39 @@ const getCurrentUser = (req, res) => __awaiter(void 0, void 0, void 0, function*
     }
 });
 exports.getCurrentUser = getCurrentUser;
+// Verificación de credenciales de administrador
+const verifyAdmin = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const { adminUsuario, adminContraseña } = req.body;
+        // Validar que se enviaron todos los campos requeridos
+        if (!adminUsuario || !adminContraseña) {
+            return res.status(400).json({ message: 'Usuario y contraseña son requeridos' });
+        }
+        // Buscar el usuario en la base de datos
+        const admin = yield init_db_1.models.Usuario.findOne({ where: { usuario: adminUsuario } });
+        // Verificar si el usuario existe
+        if (!admin) {
+            return res.status(401).json({ message: 'Credenciales inválidas' });
+        }
+        // Verificar la contraseña
+        const isValidPassword = yield bcrypt_1.default.compare(adminContraseña, admin.get('contraseña'));
+        if (!isValidPassword) {
+            return res.status(401).json({ message: 'Credenciales inválidas' });
+        }
+        // Verificar que sea un administrador
+        if (admin.get('rol') !== 'administrador') {
+            return res.status(403).json({ message: 'No tiene permisos de administrador' });
+        }
+        // Responder que es un administrador válido
+        return res.status(200).json({
+            isAdmin: true,
+            message: 'Verificación de administrador exitosa'
+        });
+    }
+    catch (error) {
+        console.error('Error en verificación de administrador:', error);
+        return res.status(500).json({ message: 'Error en el servidor' });
+    }
+});
+exports.verifyAdmin = verifyAdmin;
+//# sourceMappingURL=authController.js.map
